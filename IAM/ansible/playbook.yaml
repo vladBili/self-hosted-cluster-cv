@@ -229,10 +229,15 @@
         client_cert: "{{ cert.content | b64decode }}"
         client_key: "{{ key.content | b64decode }}"
 
+    - name: Check current user
+      ansible.builtin.command: whoami
+      register: current_user
+
     - name: Run openvpn in daemon mode
       ansible.builtin.command:
         cmd: openvpn --config "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/client.ovpn" --daemon
       become: yes
+      become_user: "{{ current_user.stdout }}"
 
 - name: Set up SSH conf
   hosts: localhost

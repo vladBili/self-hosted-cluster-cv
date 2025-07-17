@@ -38,6 +38,3 @@ backend k8s_backend
 {% for host in groups['controlplane'] %}
     server {{ hostvars[host]['inventory_hostname'] }} {{ hostvars[host]['ansible_host'] }}:6443 check
 {% endfor %}
-
-{% endif %}
-
