@@ -1,0 +1,847 @@
+---
+- name: Set up SSH conf
+  hosts: localhost
+  vars:
+    ssh_config_path: "~/.ssh/config"
+    ssh_key_path: "{{ directory }}/IAM/ansible/env/{{ department }}/keys/key.pem"
+  tasks:
+    - name: Add SSH config block for private nodes
+      ansible.builtin.blockinfile:
+        path: "{{ ssh_config_path }}"
+        create: true
+        block: |
+          {% for host in groups['bastion'] %}
+          Host {{ hostvars[host]['inventory_hostname'] }}
+            HostName {{ hostvars[host]['ansible_host'] }}
+            User ec2-user
+            IdentityFile {{ ssh_key_path }}
+
+          {% endfor %}
+
+          {% for host in groups['private'] %}
+          Host {{ hostvars[host]['inventory_hostname'] }}
+            HostName {{ hostvars[host]['ansible_host'] }}
+            User ec2-user
+            IdentityFile {{ ssh_key_path }}
+            ProxyJump {{ groups['bastion'][0] }}
+
+          {% endfor %}
+
+- name: Add all hosts to known_hosts
+  hosts: localhost
+  tasks:
+    - name: Scan and add all host keys
+      ansible.builtin.known_hosts:
+        name: "{{ hostvars[item]['ansible_host'] }}"
+        key: "{{ lookup('pipe', 'ssh-keyscan -H ' + (hostvars[item]['ansible_host'])) }}"
+        path: "~/.ssh/known_hosts"
+      loop: "{{ groups['bastion'] }}"
+
+- name: Set up OpenVPN
+  hosts: bastion
+  become: true
+  gather_facts: true
+  vars:
+    OpenVPN_dir: /tmp/openvpn/easyrsa3
+  tasks:
+    - name: Install packages 2
+      ansible.builtin.yum:
+        name:
+          - git
+          - openssl
+        state: present
+        update_cache: yes
+
+    - name: Create temporary folder for OpenVPN
+      ansible.builtin.file:
+        path: /tmp/openvpn
+        state: directory
+
+    - name: Clone the OpenVPN easy-rsa repo
+      ansible.builtin.git:
+        repo: https://github.com/OpenVPN/easy-rsa.git
+        dest: /tmp/openvpn
+
+    - name: Initialize Easy-RSA PKI
+      ansible.builtin.command: ./easyrsa init-pki
+      args:
+        chdir: "{{ OpenVPN_dir }}"
+
+    - name: Build a new certificate authority (CA)
+      ansible.builtin.command: ./easyrsa build-ca nopass
+      args:
+        chdir: "{{ OpenVPN_dir }}"
+      environment:
+        EASYRSA_BATCH: "1"
+        EASYRSA_REQ_CN: "My-VPN-CA"
+
+    - name: Generate the server certificate and key
+      ansible.builtin.command: ./easyrsa --san=DNS:server build-server-full server nopass
+      args:
+        chdir: "{{ OpenVPN_dir }}"
+      environment:
+        EASYRSA_BATCH: "1"
+
+    - name: Generate the client certificate and key
+      ansible.builtin.command: ./easyrsa build-client-full client1.domain.tld nopass
+      args:
+        chdir: "{{ OpenVPN_dir }}"
+      environment:
+        EASYRSA_BATCH: "1"
+
+    - name: Create folder for OpenVPN
+      ansible.builtin.file:
+        path: /etc/openvpn/server
+        state: directory
+
+    - name: Copy server.conf
+      ansible.builtin.copy:
+        src: "{{ directory }}/IAM/openvpn/env/{{ department }}/templates/server.conf"
+        dest: /etc/openvpn/server/server.conf
+
+    - name: Copy ca.crt
+      ansible.builtin.copy:
+        src: /tmp/openvpn/easyrsa3/pki/ca.crt
+        dest: /etc/openvpn/server/ca.crt
+        remote_src: true
+
+    - name: Copy server.crt
+      ansible.builtin.copy:
+        src: /tmp/openvpn/easyrsa3/pki/issued/server.crt
+        dest: /etc/openvpn/server/server.crt
+        remote_src: true
+
+    - name: Copy server.key
+      ansible.builtin.copy:
+        src: /tmp/openvpn/easyrsa3/pki/private/server.key
+        dest: /etc/openvpn/server/server.key
+        remote_src: true
+        mode: "600"
+
+    - name: Copy client1.domain.tld.crt
+      ansible.builtin.copy:
+        src: /tmp/openvpn/easyrsa3/pki/issued/client1.domain.tld.crt
+        dest: /etc/openvpn/server/client1.domain.tld.crt
+        remote_src: true
+
+    - name: Copy client1.domain.tld.key
+      ansible.builtin.copy:
+        src: /tmp/openvpn/easyrsa3/pki/private/client1.domain.tld.key
+        dest: /etc/openvpn/server/client1.domain.tld.key
+        remote_src: true
+
+    - name: Copy dh.pem
+      ansible.builtin.command:
+        cmd: openssl dhparam -out /etc/openvpn/server/dh.pem 2048
+
+    - name: Enable IP forwarding temporarily
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: "1"
+        state: present
+        reload: yes
+
+    - name: Ensure net.ipv4.ip_forward is enabled on boot
+      ansible.builtin.lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^net\.ipv4\.ip_forward'
+        line: "net.ipv4.ip_forward = 1"
+
+    - name: Ensure nftables is installed
+      ansible.builtin.yum:
+        name: nftables
+        state: present
+
+    - name: Enable and start nftables
+      ansible.builtin.systemd:
+        name: nftables
+        enabled: true
+        state: started
+
+    - name: Create NAT table if not exists
+      ansible.builtin.command: nft add table ip nat
+      ignore_errors: true
+
+    - name: Create postrouting chain if not exists
+      ansible.builtin.command: >
+        nft add chain ip nat postrouting { type nat hook postrouting priority 100 \; }
+      ignore_errors: true
+
+    - name: Add NAT masquerade rule
+      ansible.builtin.command: >
+        nft add rule ip nat postrouting ip saddr 10.0.5.0/24 oif {{ ansible_default_ipv4.interface }} masquerade
+      ignore_errors: true
+
+    - name: Install OpenVPN
+      ansible.builtin.yum:
+        name: openvpn
+        state: present
+        update_cache: yes
+
+    - name: Start OpenVPN server
+      ansible.builtin.systemd:
+        name: openvpn-server@server
+        state: started
+        enabled: true
+
+    - name: Fetch CA cert
+      ansible.builtin.fetch:
+        src: /etc/openvpn/server/ca.crt
+        dest: "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/ca.crt"
+        flat: yes
+
+    - name: Fetch Client cert
+      ansible.builtin.fetch:
+        src: /tmp/openvpn/easyrsa3/pki/issued/client1.domain.tld.crt
+        dest: "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/client1.domain.tld.crt"
+        flat: yes
+
+    - name: Fetch Client key
+      ansible.builtin.fetch:
+        src: /tmp/openvpn/easyrsa3/pki/private/client1.domain.tld.key
+        dest: "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/client1.domain.tld.key"
+        flat: yes
+
+- name: Create client ovpn
+  hosts: localhost
+  tasks:
+    - name: Read CA cert
+      ansible.builtin.slurp:
+        src: "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/ca.crt"
+      register: ca
+
+    - name: Read client cert
+      ansible.builtin.slurp:
+        src: "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/client1.domain.tld.crt"
+      register: cert
+
+    - name: Read client key
+      ansible.builtin.slurp:
+        src: "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/client1.domain.tld.key"
+      register: key
+
+    - name: Create client OVPN config
+      ansible.builtin.template:
+        src: "{{ directory }}/IAM/openvpn/env/{{ department }}/templates/client.ovpn.j2"
+        dest: "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/client.ovpn"
+      vars:
+        ca_cert: "{{ ca.content | b64decode }}"
+        client_cert: "{{ cert.content | b64decode }}"
+        client_key: "{{ key.content | b64decode }}"
+
+    - name: Run openvpn in daemon mode
+      ansible.builtin.command:
+        cmd: openvpn --config "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/client.ovpn" --daemon
+      become: yes
+
+- name: Set up SSH conf
+  hosts: localhost
+  tasks:
+    - name: Development department prerequisites
+      when: department  == "development"
+      become: false
+      block:
+        - name: Get cluster phase from AWS SSM
+          when: department  == "development"
+          become: false
+          ansible.builtin.command: >
+            aws ssm get-parameter
+            --name "/kubernetes/{{ department }}/cluster_phase"
+            --region {{ region }}
+            --query "Parameter.Value"
+            --output text
+          environment:
+            AWS_PROFILE: "{{ department }}-user"
+          register: kubernetes_cluster_phase
+
+        - name: Set cluster_phase fact to localhost hostvars
+          ansible.builtin.set_fact:
+            kubernetes_cluster_phase: "{{ kubernetes_cluster_phase.stdout }}"
+
+        - name: Templating HAproxy configuration file
+          ansible.builtin.template:
+            src: "{{ directory }}/IAM/haproxy/env/{{ department }}/templates/haproxy.cfg.j2"
+            dest: "{{ directory }}/IAM/haproxy/env/{{ department }}/configuration/haproxy.cfg"
+
+- name: Set up HAproxy
+  hosts: haproxy
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Install HAProxy
+      when: department  == "development" and hostvars["localhost"]["kubernetes_cluster_phase"] == "preinit"
+      block:
+        - name: Install HAProxy
+          ansible.builtin.dnf:
+            name: haproxy
+            state: present
+            update_cache: yes
+
+        - name: Copy HAProxy config
+          ansible.builtin.copy:
+            src: "{{ directory }}/IAM/haproxy/env/{{ department }}/configuration/haproxy.cfg"
+            dest: /etc/haproxy/haproxy.cfg
+
+        - name: Enable and restart HAProxy
+          ansible.builtin.systemd:
+            name: haproxy
+            enabled: yes
+            state: restarted
+
+- name: Set up all nodes
+  hosts: worker, controlplane
+  become: true
+  gather_facts: true
+  vars:
+    #Kubernetes version
+    K8S_VERSION: "1.33"
+    K8S_PATCH: "2"
+    K8S_PACKAGE: "1.1"
+    K8S_UPSTREAM_VERSION: "{{ K8S_VERSION }}.{{ K8S_PATCH }}"
+    K8S_FULL_VERSION: "{{ K8S_VERSION }}.{{ K8S_PATCH }}-{{ K8S_PACKAGE }}"
+
+    #Additional version
+    CONTAINERD_VERSION: "2.1.3"
+    RUNC_VERSION: "1.3.0"
+    CNI_VERSION: "1.6.2"
+    HELM_VERSION: "3.18.2"
+
+  tasks:
+    - name: Ensure SELinux is in permissive mode (runtime)
+      ansible.posix.selinux:
+        policy: targeted
+        state: permissive
+
+    - name: Set SELINUX=permissive in /etc/selinux/config (persistent)
+      ansible.builtin.lineinfile:
+        path: /etc/selinux/config
+        regexp: "^SELINUX="
+        line: "SELINUX=permissive"
+        backup: yes
+
+    - name: Ensure br_netfilter and overlay modules are loaded at boot
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/k8s.conf
+        content: |
+          br_netfilter
+          overlay
+        mode: "0644"
+
+    - name: Load br_netfilter module
+      ansible.builtin.modprobe:
+        name: br_netfilter
+        state: present
+
+    - name: Load overlay module
+      ansible.builtin.modprobe:
+        name: overlay
+        state: present
+
+    - name: Set sysctl params required by Kubernetes
+      ansible.posix.sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop:
+        - { name: net.ipv4.conf.all.rp_filter, value: "0" }
+        - { name: net.ipv4.conf.default.rp_filter, value: "0" }
+        - { name: net.ipv4.tcp_keepalive_time, value: "300" }
+        - { name: net.ipv4.tcp_keepalive_probes, value: "5" }
+        - { name: net.ipv4.tcp_keepalive_intvl, value: "60" }
+        - { name: net.ipv4.ip_forward, value: "1" }
+        - { name: net.bridge.bridge-nf-call-iptables, value: "1" }
+
+    - name: Ensure sysctl settings persist
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/99-kubernetes-cri.conf
+        content: |
+          net.ipv4.conf.all.rp_filter=0
+          net.ipv4.conf.default.rp_filter=0
+          net.ipv4.tcp_keepalive_time=300
+          net.ipv4.tcp_keepalive_probes=5
+          net.ipv4.tcp_keepalive_intvl=60
+          net.ipv4.ip_forward=1
+          net.bridge.bridge-nf-call-iptables=1
+        mode: "0644"
+
+    - name: Install required packages
+      ansible.builtin.dnf:
+        name:
+          - curl-minimal
+          - tar
+          - gzip
+          - shadow-utils
+          - device-mapper-persistent-data
+          - lvm2
+          - git
+          - nftables
+          - ipvsadm
+        state: present
+        update_cache: yes
+
+    - name: Enable nftables service
+      systemd:
+        name: nftables
+        enabled: yes
+
+    - name: Start nftables service
+      systemd:
+        name: nftables
+        state: started
+
+    - name: Download Go 1.24
+      ansible.builtin.get_url:
+        url: https://go.dev/dl/go1.24.0.linux-amd64.tar.gz
+        dest: /tmp/go1.24.0.linux-amd64.tar.gz
+
+    - name: Extract Go 1.24
+      ansible.builtin.unarchive:
+        src: /tmp/go1.24.0.linux-amd64.tar.gz
+        dest: /usr/local
+        remote_src: yes
+
+    - name: Set Go path system-wide
+      ansible.builtin.copy:
+        dest: /etc/profile.d/go.sh
+        content: |
+          export GOROOT=/usr/local/go
+          export GOPATH=$HOME/go
+          export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
+        mode: "0755"
+
+    - name: Apply Go PATH immediately for Ansible tasks
+      ansible.builtin.shell: |
+        export PATH=$PATH:/usr/local/go/bin
+        go version
+      environment:
+        PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
+      args:
+        executable: /bin/bash
+
+    - name: Add Kubernetes repo for AL2023
+      ansible.builtin.yum_repository:
+        name: kubernetes
+        description: Kubernetes upstream repo
+        baseurl: https://pkgs.k8s.io/core:/stable:/v{{ K8S_VERSION }}/rpm/
+        enabled: yes
+        gpgcheck: yes
+        repo_gpgcheck: yes
+        gpgkey: https://pkgs.k8s.io/core:/stable:/v{{ K8S_VERSION }}/rpm/repodata/repomd.xml.key
+
+    - name: Download Helm archive
+      ansible.builtin.get_url:
+        url: "https://get.helm.sh/helm-v{{ HELM_VERSION }}-linux-amd64.tar.gz"
+        dest: "/tmp/helm-{{ HELM_VERSION }}.tar.gz"
+        mode: "0644"
+
+    - name: Extract Helm archive
+      ansible.builtin.unarchive:
+        src: "/tmp/helm-{{ HELM_VERSION }}.tar.gz"
+        dest: "/tmp"
+        remote_src: yes
+
+    - name: Move Helm binary to /usr/local/bin
+      ansible.builtin.copy:
+        src: "/tmp/linux-amd64/helm"
+        dest: "/usr/local/bin/helm"
+        remote_src: yes
+        mode: "0755"
+
+    - name: Install Kubernetes packages
+      ansible.builtin.dnf:
+        name:
+          - "kubeadm-{{ K8S_VERSION }}*"
+          - "kubelet-{{ K8S_VERSION}}*"
+          - "kubectl-{{ K8S_VERSION }}*"
+        state: present
+
+    - name: Enable and start kubelet
+      ansible.builtin.systemd:
+        name: kubelet
+        enabled: true
+        state: started
+
+    - name: Create folder for containerD archive
+      ansible.builtin.file:
+        path: /usr/local
+        state: directory
+      register: containerD_archive_directory
+
+    - name: Download Containered archive
+      ansible.builtin.get_url:
+        url: "https://github.com/containerd/containerd/releases/download/v{{ CONTAINERD_VERSION }}/containerd-{{ CONTAINERD_VERSION }}-linux-amd64.tar.gz"
+        dest: "/tmp/containerd-{{ CONTAINERD_VERSION }}-linux-amd64.tar.gz"
+      register: containerD_archive_file
+
+    - name: Extract Containered archive
+      ansible.builtin.unarchive:
+        src: "{{ containerD_archive_file.dest }}"
+        dest: "{{ containerD_archive_directory.path }}"
+        remote_src: yes
+
+    - name: Create folder to containerD service
+      ansible.builtin.file:
+        path: /usr/local/lib/systemd/system/
+        state: directory
+      register: containerD_service_directory
+
+    - name: Download containerD service
+      ansible.builtin.get_url:
+        url: https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
+        dest: /tmp/containerd.service
+      register: containerD_service_file
+
+    - name: Copy containerD service to containerD folder
+      ansible.builtin.copy:
+        src: "{{containerD_service_file.dest}}"
+        dest: "{{containerD_service_directory.path}}"
+        remote_src: true
+
+    - name: Reload systemd and enable containerd
+      ansible.builtin.systemd_service:
+        name: containerd
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Create folder to runc
+      ansible.builtin.file:
+        path: /usr/local/sbin
+        state: directory
+        mode: "0755"
+      register: runc_directory
+
+    - name: Download runc
+      ansible.builtin.get_url:
+        url: "https://github.com/opencontainers/runc/releases/download/v{{ RUNC_VERSION }}/runc.amd64"
+        dest: /tmp/runc.amd64
+        mode: "0755"
+      register: runc_file
+
+    - name: Install runc binary
+      ansible.builtin.command: "install -m 755 {{runc_file.dest}} /usr/local/sbin/runc"
+
+    - name: Create folder for CNI archive
+      ansible.builtin.file:
+        path: /opt/cni/bin
+        state: directory
+      register: cni_archive_directory
+
+    - name: Ensure CNI conf dir exists
+      ansible.builtin.file:
+        path: /etc/cni/net.d
+        state: directory
+
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Restart kubelet
+      ansible.builtin.systemd:
+        name: kubelet
+        enabled: yes
+        state: restarted
+
+    - name: Create folder for containerD
+      ansible.builtin.file:
+        path: /etc/containerd
+        state: directory
+
+    - name: Generate containerd config with SystemdCgroup set to true
+      ansible.builtin.shell: |
+        containerd config default | sed 's/^\s*ShimCgroup = false/SystemdCgroup = true/' > /etc/containerd/config.toml
+      args:
+        creates: /etc/containerd/config.toml
+
+    - name: Restart containerd
+      ansible.builtin.systemd_service:
+        name: containerd
+        state: restarted
+
+    - name: Enable IP forwarding temporarily (immediate effect)
+      ansible.builtin.shell: "echo 1 > /proc/sys/net/ipv4/ip_forward"
+
+    - name: Enable IP forwarding permanently (persist on reboot)
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: "1"
+        state: present
+        reload: yes
+
+    - name: Ensure /etc/systemd/network directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/network
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Disable MACAddressPolicy=persistent for AWS VPC CNI compatibility
+      ansible.builtin.copy:
+        dest: /etc/systemd/network/99-custom.link
+        content: |
+          [Match]
+          OriginalName=*
+
+          [Link]
+          MACAddressPolicy=none
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Restart systemd-udevd to apply new link configuration
+      ansible.builtin.systemd:
+        name: systemd-udevd
+        state: restarted
+
+    - name: Trigger udev to apply network link changes
+      ansible.builtin.command: udevadm trigger
+      become: true
+
+    - name: Reboot the instance to fully apply MACAddressPolicy change
+      ansible.builtin.reboot:
+        msg: "Rebooting to apply systemd network link policy change"
+        connect_timeout: 10
+        reboot_timeout: 300
+
+- name: Set up CNI prerequisites
+  hosts: "{{ groups['controlplane'] + groups['worker'] }}"
+  become: true
+  gather_facts: true
+  vars:
+    ecr_region: "{{ region }}"
+    ecr_provider_url: "https://amazon-eks.s3.us-west-2.amazonaws.com/1.33.0/2025-05-01/bin/linux/amd64/ecr-credential-provider"
+    ecr_binary_path: "/usr/local/bin/credential-provider"
+    ecr_config_path: "/etc/kubernetes/credential-provider-config.yaml"
+    containerd_config_path: "/etc/containerd/config.toml"
+    credential_template_src: "{{ directory }}/IAM/kubernetes/env/{{ department }}/kubelet/credential_provider_conf.yaml.j2"
+  tasks:
+    - name: Create directory for credential provider binary
+      ansible.builtin.file:
+        path: "{{ ecr_binary_path | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Git clone aws-cloud-provider
+      ansible.builtin.git:
+        repo: https://github.com/kubernetes/cloud-provider-aws.git
+        dest: /tmp/aws-cloud-provider
+        version: master
+
+    - name: Build credential-provider
+      ansible.builtin.shell: |
+        export PATH=$PATH:/usr/local/go/bin
+        go version 
+        go build -o credential-provider
+      args:
+        chdir: /tmp/aws-cloud-provider/cmd/ecr-credential-provider
+        executable: /bin/bash
+
+    - name: Copy to kubelet executive path
+      ansible.builtin.copy:
+        src: /tmp/aws-cloud-provider/cmd/ecr-credential-provider/credential-provider
+        dest: "{{ ecr_binary_path }}"
+        mode: "0755"
+        remote_src: yes
+
+    - name: Template credential provider config
+      ansible.builtin.template:
+        src: "{{ credential_template_src }}"
+        dest: "{{ directory }}/IAM/kubernetes/env/{{ department }}/kubelet/credential_provider_conf.yaml"
+      delegate_to: localhost
+      become: false
+
+    - name: Copy credential provider config template to all nodes
+      ansible.builtin.copy:
+        src: "{{ directory }}/IAM/kubernetes/env/{{ department }}/kubelet/credential_provider_conf.yaml"
+        dest: "{{ ecr_config_path }}"
+      become: true
+
+- name: Set up primary controlplane node
+  hosts: "{{ groups['controlplane'][0] }}"
+  become: true
+  gather_facts: true
+  vars:
+    pod_network_cidr: "10.244.0.0/16"
+  tasks:
+    - name: Check if cluster is already initialized
+      ansible.builtin.stat:
+        path: /etc/kubernetes/admin.conf
+      register: kubeadm_config
+
+    - name: Copy init cluster yaml to controlplane
+      ansible.builtin.copy:
+        src: "{{ directory }}/IAM/kubernetes/env/{{ department }}/init/cluster_conf.yaml"
+        dest: /tmp/k8s_cluster_conf.yaml
+
+    - name: Cluster setup block
+      when: not kubeadm_config.stat.exists
+      block:
+        - name: Initialize cluster
+          ansible.builtin.shell: |
+            kubeadm init --upload-certs --config /tmp/k8s_cluster_conf.yaml
+          register: kubeadm_init_output
+
+        - name: Get join command
+          ansible.builtin.command: kubeadm token create --print-join-command
+          register: kubeadm_join_command
+
+        - name: Create .kube directory for user
+          ansible.builtin.file:
+            path: "~/.kube"
+            state: directory
+            mode: "0755"
+            owner: "{{ ansible_user_id }}"
+            group: "{{ ansible_user_gid | default(ansible_user_id) }}"
+
+        - name: Copy admin.conf to user's kube config
+          ansible.builtin.copy:
+            src: /etc/kubernetes/admin.conf
+            dest: "~/.kube/config"
+            remote_src: yes
+            owner: "{{ ansible_user_id }}"
+            group: "{{ ansible_user_gid | default(ansible_user_id) }}"
+            mode: "0644"
+
+        - name: Fetch kubeconfig from control plane
+          ansible.builtin.fetch:
+            src: /etc/kubernetes/admin.conf
+            dest: "{{ directory }}/IAM/kubernetes/env/{{ department }}/config/admin.conf"
+            flat: yes
+
+        - name: Set join command on all hosts
+          ansible.builtin.set_fact:
+            join_token: "{{ (kubeadm_join_command.stdout | regex_search('--token\\s+([a-z0-9]+\\.[a-z0-9]+)', '\\1'))[0] }}"
+            join_sha256: "{{ (kubeadm_join_command.stdout | regex_search('--discovery-token-ca-cert-hash\\s+sha256:([a-f0-9]+)', '\\1'))[0] }}"
+            cert_key: "{{ (kubeadm_init_output.stdout | regex_findall('--certificate-key\\s+([a-f0-9]+)'))[0] }}"
+
+- name: Template nodes
+  hosts: localhost
+  tasks:
+    - name: Loop over worker nodes and render their join config
+      ansible.builtin.template:
+        src: "{{ directory }}/IAM/kubernetes/env/{{ department }}/templates/join_node.yaml.j2"
+        dest: "{{ directory }}/IAM/kubernetes/env/{{ department }}/templates/join_node-{{ item }}.yaml"
+      loop: "{{ groups['worker'] + (groups['controlplane'][1:] if groups['controlplane'] | length > 1 else []) }}"
+      vars:
+        node_name: "{{ item }}"
+        node_ip: "{{ hostvars[item]['aws_private_ip'] }}"
+
+- name: Join secondary controlplane nodes and workers
+  hosts: "{{ groups['controlplane'][1:] + groups['worker']}}"
+  become: true
+  tasks:
+    - name: Set kubernets phase
+      when: department == "development"
+      block:
+        - name: Copy join command
+          ansible.builtin.copy:
+            src: "{{ directory }}/IAM/kubernetes/env/{{ department }}/templates/join_node-{{ inventory_hostname }}.yaml"
+            dest: /tmp/join_node.yaml
+
+        - name: Join nodes
+          ansible.builtin.shell: kubeadm join --config /tmp/join_node.yaml
+
+- name: Set up cluster_phase = postint for SSM
+  hosts: localhost
+  tasks:
+    - name: Set kubernets phase
+      when: department == "development"
+      block:
+        - name: Set Kubernetes phase to postinit in AWS SSM
+          ansible.builtin.command: >
+            aws ssm put-parameter \
+            --name "/kubernetes/{{ department }}/cluster_phase"
+            --value postinit \
+            --type String \
+            --overwrite
+          environment:
+            AWS_PROFILE: "{{ department }}-user"
+
+        - name: Get cluster phase from AWS SSM
+          ansible.builtin.command: >
+            aws ssm get-parameter
+            --name "/kubernetes/{{ department }}/cluster_phase"
+            --region {{ region }}
+            --query "Parameter.Value"
+            --output text
+          environment:
+            AWS_PROFILE: "{{ department }}-user"
+          register: kubernetes_cluster_phase
+
+        - name: Broadcast cluster_phase to all HAproxy hosts
+          ansible.builtin.set_fact:
+            kubernetes_cluster_phase: "{{ kubernetes_cluster_phase.stdout }}"
+
+        - name: Templating HAproxy conf file
+          ansible.builtin.template:
+            src: "{{ directory }}/IAM/haproxy/env/{{ department }}/templates/haproxy.cfg.j2"
+            dest: "{{ directory }}/IAM/haproxy/env/{{ department }}/configuration/haproxy.cfg"
+
+- name: Set up HAproxy
+  hosts: haproxy
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Set up HAproxy on postinit phase
+      when: department == "development" and hostvars["localhost"]["kubernetes_cluster_phase"] == "postinit"
+      block:
+        - name: Copy HAProxy config 1
+          ansible.builtin.copy:
+            src: "{{ directory }}/IAM/haproxy/env/{{ department }}/configuration/haproxy.cfg"
+            dest: /etc/haproxy/haproxy.cfg
+
+        - name: Enable and restart HAProxy
+          ansible.builtin.systemd:
+            name: haproxy
+            enabled: yes
+            state: restarted
+
+- name: Kubernetes
+  hosts: localhost
+  environment:
+    KUBECONFIG: "{{ directory }}/IAM/kubernetes/env/{{ department }}/config/admin.conf"
+  tasks:
+    - name: Label nodes
+      ansible.builtin.command:
+        cmd: kubectl label node {{ item }} node-role.kubernetes.io/worker=
+      loop: "{{ groups['worker'] }}"
+
+    - name: Deploy CNI
+      ansible.builtin.command:
+        cmd: kubectl apply -k "{{ directory }}/IAM/kubernetes/overlays/{{ department }}/cni"
+
+    - name: Setup for development
+      when: department == "development"
+      block:
+        - name: Deploy CCM
+          ansible.builtin.command:
+            cmd: kubectl apply -k "{{ directory }}/IAM/kubernetes/overlays/{{ department }}/ccm"
+
+        - name: Deploy ALB controller
+          ansible.builtin.shell: |
+            helm repo add eks https://aws.github.io/eks-charts || true
+            helm repo update
+            helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system \
+            --set nodeSelector."node-role\.kubernetes\.io/control-plane"="" \
+            --set tolerations[0].key="node-role.kubernetes.io/control-plane" \
+            --set tolerations[0].operator="Exists" \
+            --set tolerations[0].effect="NoSchedule" \
+            --set clusterName="{{ department }}-cluster" \
+            --set serviceAccount.create=true \
+            --set region={{ region }}
+
+        - name: Wait until ALB controller deployment is ready
+          kubernetes.core.k8s_info:
+            kind: Deployment
+            name: aws-load-balancer-controller
+            namespace: kube-system
+          register: deploy_info
+          until: deploy_info.resources[0].status.readyReplicas == deploy_info.resources[0].status.replicas
+          retries: 20
+          delay: 15
+
+        - name: Deploy Kustomize
+          ansible.builtin.command:
+            cmd: kubectl apply -k "{{ directory }}/IAM/kubernetes/overlays/{{ department }}"

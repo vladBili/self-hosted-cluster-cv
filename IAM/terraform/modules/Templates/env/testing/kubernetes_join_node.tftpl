@@ -1,0 +1,24 @@
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: JoinConfiguration
+discovery:
+  bootstrapToken:
+    token: {{ hostvars[groups["controlplane"][0]]['join_token'] }}
+    apiServerEndpoint: ${ec2_instances["controlplane"]["controlplane-0"].private_ip}:6443
+    caCertHashes:
+      - sha256:{{ hostvars[groups["controlplane"][0]]['join_sha256'] }}
+{% if 'controlplane' in hostvars[node_name]['group_names'] %}
+controlPlane:
+  certificateKey: {{ hostvars[groups["controlplane"][0]]['cert_key'] }}
+  localAPIEndpoint:
+    advertiseAddress: {{ node_ip }}
+    bindPort: 6443
+{% endif %}
+nodeRegistration:
+  name: {{ node_name }}
+  kubeletExtraArgs:
+    - name: image-credential-provider-bin-dir
+      value: /usr/local/bin
+    - name: image-credential-provider-config
+      value: /etc/kubernetes/credential-provider-config.yaml
+    - name: node-ip
+      value: {{ node_ip }}

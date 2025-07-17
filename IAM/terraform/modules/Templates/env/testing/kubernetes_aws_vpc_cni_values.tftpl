@@ -1,0 +1,114 @@
+nameOverride: aws-node
+
+init:
+  image:
+    tag: v1.19.2
+    domain: amazonaws.com
+    region: ${aws_region}
+    endpoint: ecr
+    account: "602401143452"
+    pullPolicy: Always
+    override:
+  env:
+    DISABLE_TCP_EARLY_DEMUX: "false"
+    ENABLE_IPv6: "false"
+  securityContext:
+    privileged: true
+  resources: {}
+
+nodeAgent:
+  enabled: true
+  image:
+    tag: v1.2.2
+    domain: amazonaws.com
+    region: ${aws_region}
+    endpoint: ecr
+    account: "602401143452"
+    pullPolicy: Always
+    # Set to use custom image
+    override:
+    # override: "repo/org/image:tag"
+  securityContext:
+    capabilities:
+      add:
+      - "NET_ADMIN"
+    privileged: true
+  enableCloudWatchLogs: "false"
+  enablePolicyEventLogs: "false"
+  networkPolicyAgentLogFileLocation: "/var/log/aws-routed-eni/network-policy-agent.log"
+  enableIpv6: "false"
+  metricsBindAddr: "8162"
+  healthProbeBindAddr: "8163"
+  conntrackCacheCleanupPeriod: 300
+  resources: {}
+
+image:
+  tag: v1.19.2
+  domain: amazonaws.com
+  region: ${aws_region}
+  endpoint: ecr
+  account: "602401143452"
+  pullPolicy: Always
+  override:
+env:
+  ADDITIONAL_ENI_TAGS: "{}"
+  AWS_VPC_CNI_NODE_PORT_SUPPORT: "true"
+  AWS_VPC_ENI_MTU: "9001"
+  AWS_VPC_K8S_CNI_CUSTOM_NETWORK_CFG: "false"
+  AWS_VPC_K8S_CNI_EXTERNALSNAT: "false"
+  AWS_VPC_K8S_CNI_LOG_FILE: "/host/var/log/aws-routed-eni/ipamd.log"
+  AWS_VPC_K8S_CNI_LOGLEVEL: DEBUG
+  AWS_VPC_K8S_CNI_RANDOMIZESNAT: "prng"
+  AWS_VPC_K8S_CNI_VETHPREFIX: eni
+  AWS_VPC_K8S_PLUGIN_LOG_FILE: "/var/log/aws-routed-eni/plugin.log"
+  AWS_VPC_K8S_PLUGIN_LOG_LEVEL: DEBUG
+  DISABLE_INTROSPECTION: "false"
+  DISABLE_METRICS: "false"
+  ENABLE_POD_ENI: "false" 
+  ENABLE_PREFIX_DELEGATION: "false"
+  POD_METADATA_ACCESS: "true"
+  WARM_ENI_TARGET: "1"
+  WARM_PREFIX_TARGET: "1"
+  DISABLE_NETWORK_RESOURCE_PROVISIONING: "false"
+  ENABLE_IPv4: "true"
+  ENABLE_IPv6: "false"
+  ENABLE_SUBNET_DISCOVERY: "true"
+  VPC_CNI_VERSION: "v1.19.2"
+  NETWORK_POLICY_ENFORCING_MODE: "standard"
+  SERVICE_CIDR: "10.96.0.0/12"
+extraEnv: []
+
+securityContext:
+  capabilities:
+    add:
+    - "NET_ADMIN"
+    - "NET_RAW"
+
+livenessProbe:
+  exec:
+    command:
+      - /app/grpc-health-probe
+      - '-addr=:50051'
+      - '-connect-timeout=5s'
+      - '-rpc-timeout=5s'
+  initialDelaySeconds: 60
+
+livenessProbeTimeoutSeconds: 10
+
+readinessProbe:
+  exec:
+    command:
+      - /app/grpc-health-probe
+      - '-addr=:50051'
+      - '-connect-timeout=5s'
+      - '-rpc-timeout=5s'
+  initialDelaySeconds: 1
+
+readinessProbeTimeoutSeconds: 10
+
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: "10%"
+
+nodeSelector: {}

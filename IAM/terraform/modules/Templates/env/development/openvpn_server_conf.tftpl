@@ -1,0 +1,24 @@
+port 1194
+proto udp
+dev tun
+ca ca.crt
+cert server.crt
+key server.key
+dh dh.pem
+server ${openvpn_subnet} ${openvpn_subnet_mask}
+ifconfig-pool-persist ipp.txt
+
+push "route ${vpc_host} ${vpc_cidr_mask}" 
+push "dhcp-option DNS 169.254.169.253"
+push "route 169.254.169.253 255.255.255.255"
+
+keepalive 10 120
+persist-key
+persist-tun
+status openvpn-status.log
+verb 3
+log-append /var/log/openvpn.log
+
+data-ciphers AES-256-GCM:AES-128-GCM
+auth SHA256
+topology subnet

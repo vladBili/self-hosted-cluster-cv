@@ -1,0 +1,2 @@
+resources:
+  - ../../../base/cni/weave

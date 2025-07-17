@@ -1,0 +1,19 @@
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: JoinConfiguration
+discovery:
+  bootstrapToken:
+    token: mkoh7m.xfuazjsf1ftaep0r
+    apiServerEndpoint: 10.0.1.54:6443
+    caCertHashes:
+      - sha256:3f83e49cdc334fce79660deb4327fd548b7c988e4b433d78c477bac19d3a4e8e
+nodeRegistration:
+  name: ip-10-0-1-35.eu-central-1.compute.internal
+  kubeletExtraArgs:
+    - name: image-credential-provider-bin-dir
+      value: /usr/local/bin
+    - name: image-credential-provider-config
+      value: /etc/kubernetes/credential-provider-config.yaml
+    - name: node-ip
+      value: 10.0.1.35
+    - name: cloud-provider 
+      value: external
