@@ -229,10 +229,15 @@
         client_cert: "{{ cert.content | b64decode }}"
         client_key: "{{ key.content | b64decode }}"
 
+    - name: Check current user
+      ansible.builtin.command: whoami
+      register: current_user
+
     - name: Run openvpn in daemon mode
       ansible.builtin.command:
         cmd: openvpn --config "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/client.ovpn" --daemon
       become: yes
+      become_user: "{{ current_user.stdout }}"
 
 - name: Set up SSH conf
   hosts: localhost
@@ -252,32 +257,32 @@
             --output text
           environment:
             AWS_PROFILE: "{{ department }}-user"
-          register: kubernetes_cluster_phase
+          register: cluster_phase
 
         - name: Set cluster_phase fact to localhost hostvars
           ansible.builtin.set_fact:
-            kubernetes_cluster_phase: "{{ kubernetes_cluster_phase.stdout }}"
+            cluster_phase: "{{ cluster_phase.stdout }}"
 
         - name: Templating HAproxy configuration file
           ansible.builtin.template:
             src: "{{ directory }}/IAM/haproxy/env/{{ department }}/templates/haproxy.cfg.j2"
             dest: "{{ directory }}/IAM/haproxy/env/{{ department }}/configuration/haproxy.cfg"
 
-- name: Set up HAproxy
+- name: Set up HAProxy service
   hosts: haproxy
   become: true
   gather_facts: true
   tasks:
     - name: Install HAProxy
-      when: department  == "development" and hostvars["localhost"]["kubernetes_cluster_phase"] == "preinit"
+      when: department  == "development" and hostvars["localhost"]["cluster_phase"] == "preinit"
       block:
-        - name: Install HAProxy
+        - name: Install HAProxy binary
           ansible.builtin.dnf:
             name: haproxy
             state: present
             update_cache: yes
 
-        - name: Copy HAProxy config
+        - name: Copy HAProxy template config from localhost
           ansible.builtin.copy:
             src: "{{ directory }}/IAM/haproxy/env/{{ department }}/configuration/haproxy.cfg"
             dest: /etc/haproxy/haproxy.cfg
@@ -742,61 +747,6 @@
 
         - name: Join nodes
           ansible.builtin.shell: kubeadm join --config /tmp/join_node.yaml
-
-- name: Set up cluster_phase = postint for SSM
-  hosts: localhost
-  tasks:
-    - name: Set kubernets phase
-      when: department == "development"
-      block:
-        - name: Set Kubernetes phase to postinit in AWS SSM
-          ansible.builtin.command: >
-            aws ssm put-parameter \
-            --name "/kubernetes/{{ department }}/cluster_phase"
-            --value postinit \
-            --type String \
-            --overwrite
-          environment:
-            AWS_PROFILE: "{{ department }}-user"
-
-        - name: Get cluster phase from AWS SSM
-          ansible.builtin.command: >
-            aws ssm get-parameter
-            --name "/kubernetes/{{ department }}/cluster_phase"
-            --region {{ region }}
-            --query "Parameter.Value"
-            --output text
-          environment:
-            AWS_PROFILE: "{{ department }}-user"
-          register: kubernetes_cluster_phase
-
-        - name: Broadcast cluster_phase to all HAproxy hosts
-          ansible.builtin.set_fact:
-            kubernetes_cluster_phase: "{{ kubernetes_cluster_phase.stdout }}"
-
-        - name: Templating HAproxy conf file
-          ansible.builtin.template:
-            src: "{{ directory }}/IAM/haproxy/env/{{ department }}/templates/haproxy.cfg.j2"
-            dest: "{{ directory }}/IAM/haproxy/env/{{ department }}/configuration/haproxy.cfg"
-
-- name: Set up HAproxy
-  hosts: haproxy
-  become: true
-  gather_facts: true
-  tasks:
-    - name: Set up HAproxy on postinit phase
-      when: department == "development" and hostvars["localhost"]["kubernetes_cluster_phase"] == "postinit"
-      block:
-        - name: Copy HAProxy config 1
-          ansible.builtin.copy:
-            src: "{{ directory }}/IAM/haproxy/env/{{ department }}/configuration/haproxy.cfg"
-            dest: /etc/haproxy/haproxy.cfg
-
-        - name: Enable and restart HAProxy
-          ansible.builtin.systemd:
-            name: haproxy
-            enabled: yes
-            state: restarted
 
 - name: Kubernetes
   hosts: localhost

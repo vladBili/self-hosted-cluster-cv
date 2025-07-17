@@ -19,14 +19,6 @@ defaults
     timeout http-keep-alive 10s
     timeout check 10s
 
-frontend http-in
-    bind *:80
-    mode http
-
-    acl is_airflow hdr(host) -i airflow.${domain_name}
-    use_backend airflow_backend if is_airflow
-
-{% if kubernetes_cluster_phase  == "preinit" %}
 frontend healthcheck
     bind *:8080
     mode http
@@ -36,26 +28,9 @@ frontend apiserver
     bind *:6443
     mode tcp
     option tcplog
-    default_backend k8s_init_backend
+    default_backend k8s_backend
 
-backend k8s_init_backend
-    mode tcp
-    balance roundrobin
-    server ${ec2_instances["controlplane"]["controlplane-0"].private_dns} {{hostvars[groups["controlplane"][0]]['ansible_host']}}:6443 check
-
-backend airflow_backend
-    mode http
-    balance roundrobin
-    server ${ec2_instances["controlplane"]["controlplane-0"].private_dns} {{hostvars[groups["controlplane"][0]]['ansible_host']}}:30090 check
-
-{% elif kubernetes_cluster_phase == "postinit" %}
-frontend apiserver
-    bind *:6443
-    mode tcp
-    option tcplog
-    default_backend k8s_multi_backend
-
-backend k8s_multi_backend
+backend k8s_backend
     mode tcp
     balance roundrobin
     option tcp-check
@@ -63,13 +38,3 @@ backend k8s_multi_backend
 {% for host in groups['controlplane'] %}
     server {{ hostvars[host]['inventory_hostname'] }} {{ hostvars[host]['ansible_host'] }}:6443 check
 {% endfor %}
-
-backend airflow_backend
-    mode http
-    balance roundrobin
-{% for host in groups['controlplane'] %}
-    server {{ hostvars[host]['inventory_hostname'] }} {{ hostvars[host]['ansible_host'] }}:30090 check
-{% endfor %}
-
-{% endif %}
-
