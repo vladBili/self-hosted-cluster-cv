@@ -12,8 +12,14 @@ locals {
 }
 
 resource "local_file" "templates" {
-  count    = local.template_length
-  content  = try(templatefile("${path.module}/env/${terraform.workspace}/${local.templates[count.index].name}.tftpl", var.parameters), "")
-  filename = abspath("${path.root}/../${local.templates[count.index].tool}/env/${terraform.workspace}/${local.templates[count.index].path}")
+  count   = local.template_length
+  content = try(templatefile("${path.module}/env/${terraform.workspace}/${local.templates[count.index].name}.tftpl", var.parameters), "")
+  filename = abspath(
+    "${path.root}/../${local.templates[count.index].tool}/${
+      contains(["ansible", "kubernetes"], local.templates[count.index].tool)
+      ? "env/${terraform.workspace}"
+      : "${terraform.workspace}"
+    }/${local.templates[count.index].path}"
+  )
 }
 

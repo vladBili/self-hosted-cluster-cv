@@ -2,7 +2,7 @@ nameOverride: aws-node
 
 init:
   image:
-    tag: v1.19.6
+    tag: v1.19.2
     domain: amazonaws.com
     region: ${aws_region}
     endpoint: ecr
@@ -43,7 +43,7 @@ nodeAgent:
   resources: {}
 
 image:
-  tag: v1.19.6
+  tag: v1.19.2
   domain: amazonaws.com
   region: ${aws_region}
   endpoint: ecr
@@ -65,7 +65,7 @@ env:
   DISABLE_INTROSPECTION: "false"
   DISABLE_METRICS: "false"
   ENABLE_POD_ENI: "false" 
-  ENABLE_PREFIX_DELEGATION: "true"
+  ENABLE_PREFIX_DELEGATION: "false"
   POD_METADATA_ACCESS: "true"
   WARM_ENI_TARGET: "1"
   WARM_PREFIX_TARGET: "1"
@@ -73,7 +73,7 @@ env:
   ENABLE_IPv4: "true"
   ENABLE_IPv6: "false"
   ENABLE_SUBNET_DISCOVERY: "true"
-  VPC_CNI_VERSION: "v1.19.6"
+  VPC_CNI_VERSION: "v1.19.2"
   NETWORK_POLICY_ENFORCING_MODE: "standard"
   SERVICE_CIDR: "10.96.0.0/12"
 extraEnv: []

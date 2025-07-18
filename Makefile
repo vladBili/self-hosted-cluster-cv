@@ -1,6 +1,6 @@
 DIRECTORY := $(strip $(shell pwd))
 
-DEPARTMENT ?= development
+DEPARTMENT ?= production
 AWS_ROOT_PROFILE ?= root
 AWS_IAM_PROFILE := $(DEPARTMENT)-user
 AWS_REGION = eu-central-1

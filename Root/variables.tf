@@ -12,10 +12,10 @@ variable "aws_region" {
 # IAM module
 variable "iam_user_department_map" {
   type    = map(string)
-  default = { "testing" : "testing", "development" : "development" }
+  default = { "development" : "development", "production" : "production" }
   validation {
-    condition     = alltrue([for value in toset(values(var.iam_user_department_map)) : contains(["development", "testing"], value)])
-    error_message = "Allowed values for departments are only 'development' or 'testing"
+    condition     = alltrue([for value in toset(values(var.iam_user_department_map)) : contains(["production", "development"], value)])
+    error_message = "Allowed values for departments are only 'production' or 'development"
   }
 }
 
