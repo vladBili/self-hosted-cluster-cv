@@ -13,8 +13,8 @@
       ansible.builtin.command:
         cmd: kubectl apply -k "{{ directory }}/IAM/kubernetes/overlays/{{ department }}/cni"
 
-    - name: Setup for development
-      when: department == "development"
+    - name: Setup for production
+      when: department == "production"
       block:
         - name: Deploy CCM
           ansible.builtin.command:

@@ -1,4 +1,0 @@
-resources:
-  - cni
-  - ../../base/ingress
-  - ../../base/nginx

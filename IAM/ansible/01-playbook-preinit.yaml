@@ -96,7 +96,7 @@
 
     - name: Copy server.conf
       ansible.builtin.copy:
-        src: "{{ directory }}/IAM/openvpn/env/{{ department }}/templates/server.conf"
+        src: "{{ directory }}/IAM/openvpn/{{ department }}/templates/server.conf"
         dest: /etc/openvpn/server/server.conf
 
     - name: Copy ca.crt
@@ -187,19 +187,19 @@
     - name: Fetch CA cert
       ansible.builtin.fetch:
         src: /etc/openvpn/server/ca.crt
-        dest: "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/ca.crt"
+        dest: "{{ directory }}/IAM/openvpn/{{ department }}/configuration/ca.crt"
         flat: yes
 
     - name: Fetch Client cert
       ansible.builtin.fetch:
         src: /tmp/openvpn/easyrsa3/pki/issued/client1.domain.tld.crt
-        dest: "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/client1.domain.tld.crt"
+        dest: "{{ directory }}/IAM/openvpn/{{ department }}/configuration/client1.domain.tld.crt"
         flat: yes
 
     - name: Fetch Client key
       ansible.builtin.fetch:
         src: /tmp/openvpn/easyrsa3/pki/private/client1.domain.tld.key
-        dest: "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/client1.domain.tld.key"
+        dest: "{{ directory }}/IAM/openvpn/{{ department }}/configuration/client1.domain.tld.key"
         flat: yes
 
 - name: Create client ovpn
@@ -207,34 +207,24 @@
   tasks:
     - name: Read CA cert
       ansible.builtin.slurp:
-        src: "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/ca.crt"
+        src: "{{ directory }}/IAM/openvpn/{{ department }}/configuration/ca.crt"
       register: ca
 
     - name: Read client cert
       ansible.builtin.slurp:
-        src: "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/client1.domain.tld.crt"
+        src: "{{ directory }}/IAM/openvpn/{{ department }}/configuration/client1.domain.tld.crt"
       register: cert
 
     - name: Read client key
       ansible.builtin.slurp:
-        src: "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/client1.domain.tld.key"
+        src: "{{ directory }}/IAM/openvpn/{{ department }}/configuration/client1.domain.tld.key"
       register: key
 
     - name: Create client OVPN config
       ansible.builtin.template:
-        src: "{{ directory }}/IAM/openvpn/env/{{ department }}/templates/client.ovpn.j2"
-        dest: "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/client.ovpn"
+        src: "{{ directory }}/IAM/openvpn/{{ department }}/templates/client.ovpn.j2"
+        dest: "{{ directory }}/IAM/openvpn/{{ department }}/configuration/client.ovpn"
       vars:
         ca_cert: "{{ ca.content | b64decode }}"
         client_cert: "{{ cert.content | b64decode }}"
         client_key: "{{ key.content | b64decode }}"
-
-    - name: Check current user
-      ansible.builtin.command: whoami
-      register: current_user
-
-    - name: Run openvpn in daemon mode
-      ansible.builtin.command:
-        cmd: openvpn --config "{{ directory }}/IAM/openvpn/env/{{ department }}/configuration/client.ovpn" --daemon
-      become: yes
-      become_user: "{{ current_user.stdout }}"

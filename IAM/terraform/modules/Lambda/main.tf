@@ -1,7 +1,7 @@
 data "archive_file" "haproxy_health_zip" {
   count       = var.enabled ? 1 : 0
   type        = "zip"
-  source_dir  = "${path.root}/../python/env/${terraform.workspace}/ha_proxy_health"
+  source_dir  = "${path.root}/../python/${terraform.workspace}/ha_proxy_health"
   output_path = "${path.module}/python/function.zip"
 }
 

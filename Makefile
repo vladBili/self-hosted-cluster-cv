@@ -1,6 +1,6 @@
 DIRECTORY := $(strip $(shell pwd))
 
-DEPARTMENT ?= development
+DEPARTMENT ?= production
 AWS_ROOT_PROFILE ?= root
 AWS_IAM_PROFILE := $(DEPARTMENT)-user
 AWS_REGION = eu-central-1
@@ -46,7 +46,10 @@ ansible-playbook-preinit: terraform-iam-provision-preinit
 	ansible-playbook "${DIRECTORY}/IAM/ansible/01-playbook-preinit.yaml" \
 	-e department=${DEPARTMENT} -e directory=${DIRECTORY} -e region=${AWS_REGION}
 
-ansible-playbook-init: ansible-playbook-preinit
+openvpn-access-cluster: ansible-playbook-preinit
+	sudo openvpn --config "${DIRECTORY}/IAM/openvpn/${DEPARTMENT}/configuration/client.ovpn" --daemon
+
+ansible-playbook-init: openvpn-access-cluster
 	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \
 	cd IAM/ansible/env/${DEPARTMENT} && \
 	ansible-playbook "${DIRECTORY}/IAM/ansible/02-playbook-init.yaml" \

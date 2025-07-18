@@ -1,12 +1,13 @@
+---
 - name: Set up SSH conf
   hosts: localhost
   tasks:
-    - name: Development department prerequisites
-      when: department  == "development"
+    - name: Production department prerequisites
+      when: department  == "production"
       become: false
       block:
         - name: Get cluster phase from AWS SSM
-          when: department  == "development"
+          when: department  == "production"
           become: false
           ansible.builtin.command: >
             aws ssm get-parameter
@@ -24,8 +25,8 @@
 
         - name: Templating HAproxy configuration file
           ansible.builtin.template:
-            src: "{{ directory }}/IAM/haproxy/env/{{ department }}/templates/haproxy.cfg.j2"
-            dest: "{{ directory }}/IAM/haproxy/env/{{ department }}/configuration/haproxy.cfg"
+            src: "{{ directory }}/IAM/haproxy/{{ department }}/templates/haproxy.cfg.j2"
+            dest: "{{ directory }}/IAM/haproxy/{{ department }}/configuration/haproxy.cfg"
 
 - name: Set up HAProxy service
   hosts: haproxy
@@ -33,7 +34,7 @@
   gather_facts: true
   tasks:
     - name: Install HAProxy
-      when: department  == "development" and hostvars["localhost"]["cluster_phase"] == "preinit"
+      when: department  == "production" and hostvars["localhost"]["cluster_phase"] == "preinit"
       block:
         - name: Install HAProxy binary
           ansible.builtin.dnf:
@@ -43,7 +44,7 @@
 
         - name: Copy HAProxy template config from localhost
           ansible.builtin.copy:
-            src: "{{ directory }}/IAM/haproxy/env/{{ department }}/configuration/haproxy.cfg"
+            src: "{{ directory }}/IAM/haproxy/{{ department }}/configuration/haproxy.cfg"
             dest: /etc/haproxy/haproxy.cfg
 
         - name: Enable and restart HAProxy
@@ -497,7 +498,7 @@
   become: true
   tasks:
     - name: Set kubernets phase
-      when: department == "development"
+      when: department == "production"
       block:
         - name: Copy join command
           ansible.builtin.copy:

@@ -1,10 +1,10 @@
 data "aws_region" "main_region" {}
 
 locals {
-  is_testing = terraform.workspace == "testing"
-  ha_enabled = local.is_testing ? "false" : "true"
-  count      = local.is_testing ? 0 : 1
-  aws_region = data.aws_region.main_region.name
+  is_development = terraform.workspace == "development"
+  ha_enabled     = local.is_development ? "false" : "true"
+  count          = local.is_development ? 0 : 1
+  aws_region     = data.aws_region.main_region.name
 }
 
 provider "aws" {
