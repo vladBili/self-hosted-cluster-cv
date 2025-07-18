@@ -1,2 +1,2 @@
 resources:
-  - ../../../base/cni/aws-vpc-cni
+  - ../../../base/cni/weave

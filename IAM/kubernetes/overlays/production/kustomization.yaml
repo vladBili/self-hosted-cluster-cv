@@ -1,0 +1,6 @@
+resources:
+  - ccm
+  - cni
+  - ingress
+  - ../../base/external-dns
+  - ../../base/nginx
