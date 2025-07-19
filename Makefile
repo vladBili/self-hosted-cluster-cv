@@ -5,6 +5,11 @@ AWS_ROOT_PROFILE ?= root
 AWS_IAM_PROFILE := $(DEPARTMENT)-user
 AWS_REGION = eu-central-1
 
+DOMAIN_NAME = vladbilii.click
+
+include .env
+export
+
 all: ansible-playbook-postinit
 
 terraform-root-provision-backend:
@@ -44,7 +49,9 @@ ansible-playbook-preinit: terraform-iam-provision-preinit
 	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \
 	cd IAM/ansible/env/${DEPARTMENT} && \
 	ansible-playbook "${DIRECTORY}/IAM/ansible/01-playbook-preinit.yaml" \
-	-e department=${DEPARTMENT} -e directory=${DIRECTORY} -e region=${AWS_REGION}
+	-e department=${DEPARTMENT} \
+	-e directory=${DIRECTORY} \
+	-e region=${AWS_REGION}
 
 openvpn-access-cluster: ansible-playbook-preinit
 	sudo openvpn --config "${DIRECTORY}/IAM/openvpn/${DEPARTMENT}/configuration/client.ovpn" --daemon
@@ -53,13 +60,19 @@ ansible-playbook-init: openvpn-access-cluster
 	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \
 	cd IAM/ansible/env/${DEPARTMENT} && \
 	ansible-playbook "${DIRECTORY}/IAM/ansible/02-playbook-init.yaml" \
-	-e department=${DEPARTMENT} -e directory=${DIRECTORY} -e region=${AWS_REGION}
+	-e department=${DEPARTMENT} \
+	-e directory=${DIRECTORY} \
+	-e region=${AWS_REGION} \
+	-e domain_name=${DOMAIN_NAME} \
+	-e email="${CERTBOT_EMAIL}"
 
 ansible-playbook-postinit: ansible-playbook-init
 	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \
 	cd IAM/ansible/env/${DEPARTMENT} && \
 	ansible-playbook "${DIRECTORY}/IAM/ansible/03-playbook-postinit.yaml" \
-	-e department=${DEPARTMENT} -e directory=${DIRECTORY} -e region=${AWS_REGION}
+	-e department=${DEPARTMENT} \
+	-e directory=${DIRECTORY} \
+	-e region=${AWS_REGION}
 
 
 

@@ -10,39 +10,39 @@
       loop: "{{ groups['worker'] }}"
 
     - name: Deploy CNI
-      ansible.builtin.command:
-        cmd: kubectl apply -k "{{ directory }}/IAM/kubernetes/overlays/{{ department }}/cni"
+      ansible.builtin.shell: |
+        helm repo add eks https://aws.github.io/eks-charts || true
+        helm repo update
+        helm upgrade --install aws-vpc-cni eks/aws-vpc-cni \
+        --namespace kube-system \
+        --version 1.20.0 \
+        --set env.ENABLE_PREFIX_DELEGATION=true \
+        --set env.NETWORK_POLICY_ENFORCING_MODE=standard
 
-    - name: Setup for production
-      when: department == "production"
-      block:
-        - name: Deploy CCM
-          ansible.builtin.command:
-            cmd: kubectl apply -k "{{ directory }}/IAM/kubernetes/overlays/{{ department }}/ccm"
+    - name: Deploy CCM
+      ansible.builtin.shell: |
+        kubectl apply -k https://github.com/kubernetes/cloud-provider-aws//examples/existing-cluster/base?ref=master
 
-        - name: Deploy ALB controller
-          ansible.builtin.shell: |
-            helm repo add eks https://aws.github.io/eks-charts || true
-            helm repo update
-            helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system \
-            --set nodeSelector."node-role\.kubernetes\.io/control-plane"="" \
-            --set tolerations[0].key="node-role.kubernetes.io/control-plane" \
-            --set tolerations[0].operator="Exists" \
-            --set tolerations[0].effect="NoSchedule" \
-            --set clusterName="{{ department }}-cluster" \
-            --set serviceAccount.create=true \
-            --set region={{ region }}
+    - name: Deploy ArgoCD
+      vars:
+        cp_count: "{{ groups['controlplane'] | length }}"
+        ha_enabled: "{{ 'true' if department == 'production' else 'false' }}"
+      ansible.builtin.shell: |
+        helm repo add argo https://argoproj.github.io/argo-helm || true
+        helm repo update
+        helm upgrade --install argocd argo/argo-cd \
+          --create-namespace \
+          --namespace argocd \
+          --set redis-ha.enabled={{ ha_enabled }} \
+          --set controller.replicas={{ cp_count }} \
+          --set server.replicas={{ cp_count }} \
+          --set repoServer.replicas={{ cp_count }} \
+          --set applicationSet.replicas={{ cp_count }}
 
-        - name: Wait until ALB controller deployment is ready
-          kubernetes.core.k8s_info:
-            kind: Deployment
-            name: aws-load-balancer-controller
-            namespace: kube-system
-          register: deploy_info
-          until: deploy_info.resources[0].status.readyReplicas == deploy_info.resources[0].status.replicas
-          retries: 20
-          delay: 15
+    - name: Deploy argocd projects
+      ansible.builtin.shell: |
+        kubectl apply -f "{{ directory }}/IAM/argocd/{{ department }}/projects"
 
-        - name: Deploy Kustomize
-          ansible.builtin.command:
-            cmd: kubectl apply -k "{{ directory }}/IAM/kubernetes/overlays/{{ department }}"
+    - name: Deploy applications
+      ansible.builtin.shell: |
+        kubectl apply -k "{{ directory }}/IAM/kubernetes/overlays/{{ department }}"

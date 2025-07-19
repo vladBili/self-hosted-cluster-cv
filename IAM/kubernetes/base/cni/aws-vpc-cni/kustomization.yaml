@@ -1,3 +1,2 @@
 resources:
-  - crds
-  - templates
+  - argocd-app-aws-vpc-cni.yaml

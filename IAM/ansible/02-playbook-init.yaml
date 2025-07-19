@@ -36,9 +36,10 @@
     - name: Install HAProxy
       when: department  == "production" and hostvars["localhost"]["cluster_phase"] == "preinit"
       block:
-        - name: Install HAProxy binary
+        - name: Install binaries for HAProxy
           ansible.builtin.dnf:
-            name: haproxy
+            name:
+              - haproxy
             state: present
             update_cache: yes
 
@@ -497,13 +498,10 @@
   hosts: "{{ groups['controlplane'][1:] + groups['worker']}}"
   become: true
   tasks:
-    - name: Set kubernets phase
-      when: department == "production"
-      block:
-        - name: Copy join command
-          ansible.builtin.copy:
-            src: "{{ directory }}/IAM/kubernetes/env/{{ department }}/templates/join_node-{{ inventory_hostname }}.yaml"
-            dest: /tmp/join_node.yaml
+    - name: Copy join command
+      ansible.builtin.copy:
+        src: "{{ directory }}/IAM/kubernetes/env/{{ department }}/templates/join_node-{{ inventory_hostname }}.yaml"
+        dest: /tmp/join_node.yaml
 
-        - name: Join nodes
-          ansible.builtin.shell: kubeadm join --config /tmp/join_node.yaml
+    - name: Join nodes
+      ansible.builtin.shell: kubeadm join --config /tmp/join_node.yaml

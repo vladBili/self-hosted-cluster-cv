@@ -63,6 +63,21 @@ variable "kubernetes_ingress_security_group" {
       from_port   = 30000,
       to_port     = 65535,
       ip_protocol = "udp"
+    },
+    "redis_tcp" = {
+      from_port   = 6379,
+      to_port     = 6379,
+      ip_protocol = "tcp"
+    },
+    "argo_tcp" = {
+      from_port   = 8081,
+      to_port     = 8081,
+      ip_protocol = "tcp"
+    },
+    "sentinel_tcp" = {
+      from_port   = 26379,
+      to_port     = 26379,
+      ip_protocol = "tcp"
     }
   }
 }

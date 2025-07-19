@@ -1,6 +1,5 @@
 resources:
-  - cluster-role.yaml
-  - cluster-role-binding.yaml
-  - service-account.yaml
-  - role-binding.yaml
-  - daemonset.yaml
+  - ../../../base/ccm/argocd
+
+patchesStrategicMerge:
+  - patch.yaml

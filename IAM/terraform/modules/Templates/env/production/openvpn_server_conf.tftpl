@@ -11,6 +11,8 @@ ifconfig-pool-persist ipp.txt
 push "route ${vpc_host} ${vpc_cidr_mask}" 
 push "dhcp-option DNS 169.254.169.253"
 push "route 169.254.169.253 255.255.255.255"
+push "dhcp-option DNS 1.1.1.1"
+push "route 1.1.1.1 255.255.255.255 net_gateway"
 
 keepalive 10 120
 persist-key
