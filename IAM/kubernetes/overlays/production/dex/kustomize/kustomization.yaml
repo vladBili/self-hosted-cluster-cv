@@ -16,7 +16,7 @@ helmCharts:
           type: etcd
           config:
             endpoints:
-              - http://localhost:2379
+              - http://etcd.kube-system.svc.cluster.local:2379
             namespace: kube-system
         enablePasswordDB: true
 
