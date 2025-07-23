@@ -9,7 +9,7 @@ spec:
   project: development
   source:
     repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
-    targetRevision: feature/argocd-deploy 
+    targetRevision: main
     path: IAM/kubernetes/base/ingress/kustomize
   destination:
     server: https://kubernetes.default.svc
