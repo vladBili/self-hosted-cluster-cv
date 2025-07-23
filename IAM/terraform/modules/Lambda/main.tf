@@ -20,7 +20,7 @@ resource "aws_lambda_function" "lambda_haproxy_health_function" {
       PRIMARY_IP    = try(var.function["haproxy_healthcheck"].ec2_instances["haproxy"]["haproxy-0"].private_ip, "")
       SECONDARY_IP  = try(var.function["haproxy_healthcheck"].ec2_instances["haproxy"]["haproxy-1"].private_ip, "")
       HOSTED_ZONE   = try(var.function["haproxy_healthcheck"].route53_hosted_zone, "")
-      RECORD_NAME   = try("k8s.${var.function["haproxy_healthcheck"].route53_domain_name}", "")
+      DOMAIN_NAME   = try(var.function["haproxy_healthcheck"].route53_domain_name, "")
       WORKSPACE     = "${terraform.workspace}"
     }
   }

@@ -1,0 +1,2 @@
+resources:
+  - argocd-app1-ingress.yaml

@@ -19,6 +19,13 @@ defaults
     timeout http-keep-alive 10s
     timeout check 10s
 
+resolvers kube-dns
+    nameserver dns1 10.96.0.10:53
+    resolve_retries       3
+    timeout retry         1s
+    hold valid            10s
+    accepted_payload_size 8192
+
 frontend healthcheck
     bind *:8080
     mode http
@@ -30,6 +37,14 @@ frontend apiserver
     option tcplog
     default_backend k8s_backend
 
+frontend https_front
+    bind *:443
+    mode tcp
+    tcp-request inspect-delay 5s
+    tcp-request content accept if { req.ssl_hello_type 1 }
+    acl host_argocd req.ssl_sni -i argocd.${domain_name}
+    use_backend argocd_backend if host_argocd
+
 backend k8s_backend
     mode tcp
     balance roundrobin
@@ -37,4 +52,13 @@ backend k8s_backend
     tcp-check connect port 6443
 {% for host in groups['controlplane'] %}
     server {{ hostvars[host]['inventory_hostname'] }} {{ hostvars[host]['ansible_host'] }}:6443 check
+{% endfor %}
+
+backend argocd_backend
+    mode tcp
+    balance roundrobin
+    option tcp-check
+    tcp-check connect port 30080
+{% for host in groups['controlplane'] %}
+    server {{ hostvars[host]['inventory_hostname'] }} {{ hostvars[host]['ansible_host'] }}:30080 check
 {% endfor %}

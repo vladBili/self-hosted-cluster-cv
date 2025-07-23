@@ -1,0 +1,2 @@
+resources:
+  - argocd-app-app1.yaml

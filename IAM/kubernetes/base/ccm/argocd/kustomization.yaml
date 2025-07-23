@@ -1,0 +1,2 @@
+resources:
+  - argocd-app-aws-ccm.yaml

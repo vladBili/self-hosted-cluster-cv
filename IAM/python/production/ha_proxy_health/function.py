@@ -23,10 +23,11 @@ def check_health(ip, phase):
 
 def lambda_handler(event, context):
     hosted_zone = os.environ["HOSTED_ZONE"]
-    record_name = os.environ["RECORD_NAME"]
+    domain_name = os.environ["DOMAIN_NAME"]
     primary_ip = os.environ["PRIMARY_IP"]
     secondary_ip = os.environ["SECONDARY_IP"]
     workspace = os.environ["WORKSPACE"]
+    subdomains = ["k8s","argocd"]
     cluster_phase_param = os.environ.get("CLUSTER_PHASE_PARAM", f"/kubernetes/{workspace}/cluster_phase")
 
     haproxy_nodes = [primary_ip, secondary_ip]
@@ -44,21 +45,22 @@ def lambda_handler(event, context):
         healthy, message = check_health(ip, phase)
         if healthy:
             try:
-                route53.change_resource_record_sets(
-                    HostedZoneId=hosted_zone,
-                    ChangeBatch={
-                        "Comment": f"{phase}: Set DNS to healthy endpoint",
-                        "Changes": [{
-                            "Action": "UPSERT",
-                            "ResourceRecordSet": {
-                                "Name": record_name,
-                                "Type": "A",
-                                "TTL": 60,
-                                "ResourceRecords": [{"Value": ip}]
-                            }
-                        }]
-                    }
-                )
+                for subdomain in subdomains:
+                    route53.change_resource_record_sets(
+                        HostedZoneId=hosted_zone,
+                        ChangeBatch={
+                            "Comment": f"{phase}: Set DNS to healthy endpoint",
+                            "Changes": [{
+                                "Action": "UPSERT",
+                                "ResourceRecordSet": {
+                                    "Name": f"{subdomain}.{domain_name}",
+                                    "Type": "A",
+                                    "TTL": 60,
+                                    "ResourceRecords": [{"Value": ip}]
+                                }
+                            }]
+                        }
+                    )
                 return {"status": "success", "phase": phase, "selected_ip": ip}
             except ClientError as e:
                 return {"status": "error", "message": f"Route53 update failed: {e}"}

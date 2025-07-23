@@ -3,6 +3,9 @@
 *.tfstate.*
 *.backup
 .terraform/
+plan/
 .terraform.lock.hcl
 *.DS_Store
 *.vscode
+
+.env
