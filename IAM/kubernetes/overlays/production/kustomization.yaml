@@ -2,7 +2,8 @@ resources:
   - alb
   - ccm
   - cni
-  - ingress
+  - dex
   - nginx
   - ../../base/external-dns
+  - ../../base/cert-manager
   - argocd-nodeport-service.yaml
