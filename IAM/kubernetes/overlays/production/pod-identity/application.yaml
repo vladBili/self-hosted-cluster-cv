@@ -1,21 +1,21 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: dex
+  name: pod-identity
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
   annotations:
-    argocd.argoproj.io/sync-wave: "5"
+    argocd.argoproj.io/sync-wave: "7"
 spec:
   project: production
   source:
     repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
     targetRevision: feature/dex-oidc
-    path: IAM/kubernetes/overlays/production/dex/kustomize
+    path: IAM/kubernetes/overlays/production/pod-identity/kustomize
   destination:
     server: https://kubernetes.default.svc
-    namespace: dex
+    namespace: default
   syncPolicy:
     automated:
       prune: true

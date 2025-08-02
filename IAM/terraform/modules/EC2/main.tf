@@ -56,8 +56,6 @@ resource "aws_instance" "main_bastion_nodes" {
   subnet_id              = keys(var.networking.vpc_subnet_map["public"])[0]
   vpc_security_group_ids = [var.networking.vpc_security_groups["bastion"]]
 
-  iam_instance_profile = var.management.iam_instance_profile["s3_full_access"]
-
   tags = {
     Name                                                   = "bastion-0"
     department                                             = terraform.workspace
@@ -91,8 +89,6 @@ resource "aws_instance" "main_haproxy_nodes" {
   subnet_id              = keys(var.networking.vpc_subnet_map["private"])[count.index % local.private_subnet_length]
   vpc_security_group_ids = [var.networking.vpc_security_groups["haproxy"]]
 
-  iam_instance_profile = var.management.iam_instance_profile["s3_full_access"]
-
   tags = {
     Name                                                   = "haproxy-${count.index}"
     department                                             = terraform.workspace
@@ -114,7 +110,7 @@ resource "aws_instance" "main_controlplane_nodes" {
   subnet_id              = keys(var.networking.vpc_subnet_map["private"])[count.index % local.private_subnet_length]
   vpc_security_group_ids = [var.networking.vpc_security_groups["controlplane"]]
 
-  iam_instance_profile = var.management.iam_instance_profile["s3_full_access"]
+  iam_instance_profile = terraform.workspace == "development" || var.cluster_phase != "postinit" ? var.management.iam_instance_profile["aws_full_access"] : var.management.iam_instance_profile["aws_controlplane_access"]
 
   tags = {
     Name                                                   = "controlplane-${count.index}"
@@ -142,7 +138,7 @@ resource "aws_instance" "main_worker_nodes" {
   subnet_id              = keys(var.networking.vpc_subnet_map["private"])[count.index % local.private_subnet_length]
   vpc_security_group_ids = [var.networking.vpc_security_groups["worker"]]
 
-  iam_instance_profile = var.management.iam_instance_profile["s3_full_access"]
+  iam_instance_profile = terraform.workspace == "development" || var.cluster_phase != "postinit" ? var.management.iam_instance_profile["aws_full_access"] : var.management.iam_instance_profile["aws_worker_access"]
 
 
   tags = {

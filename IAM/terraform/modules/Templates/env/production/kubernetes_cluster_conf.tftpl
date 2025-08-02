@@ -31,6 +31,8 @@ apiServer:
   extraArgs:
     - name: bind-address
       value: 0.0.0.0 
+    - name: anonymous-auth
+      value: "true"
   certSANs:
     - k8s.${domain_name}
     - localhost

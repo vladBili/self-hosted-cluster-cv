@@ -10,7 +10,7 @@ DOMAIN_NAME = vladbilii.click
 include .env
 export
 
-all: ansible-playbook-postinit
+all: ansible-playbook-final
 
 terraform-root-provision-backend:
 	cd Root && \
@@ -41,8 +41,11 @@ terraform-iam-init: aws-root-configure-iam-profile
 terraform-iam-provision-preinit: terraform-iam-init
 	cd IAM/terraform && \
 	export AWS_PROFILE=$(AWS_IAM_PROFILE) && \
-	terraform plan -out="env/$(DEPARTMENT)/plan/planfile-preinit" -var-file="env/$(DEPARTMENT)/variables/$(DEPARTMENT).tfvars" \
-	-var="pwd=${DIRECTORY}" -var="build_phase=preinit"
+	terraform plan -out="env/$(DEPARTMENT)/plan/planfile-preinit" \
+	-var-file="env/$(DEPARTMENT)/variables/$(DEPARTMENT).tfvars" \
+	-var="pwd=${DIRECTORY}" \
+	-var="build_phase=preinit" && \
+	terraform apply "env/$(DEPARTMENT)/plan/planfile-preinit"
 
 ansible-playbook-preinit: terraform-iam-provision-preinit
 	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \
@@ -52,10 +55,7 @@ ansible-playbook-preinit: terraform-iam-provision-preinit
 	-e directory=${DIRECTORY} \
 	-e region=${AWS_REGION}
 
-openvpn-access-cluster: ansible-playbook-preinit
-	sudo openvpn --config "${DIRECTORY}/IAM/openvpn/${DEPARTMENT}/configuration/client.ovpn" --daemon
-
-ansible-playbook-init: openvpn-access-cluster
+ansible-playbook-init: ansible-playbook-preinit
 	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \
 	cd IAM/ansible/env/${DEPARTMENT} && \
 	ansible-playbook "${DIRECTORY}/IAM/ansible/02-playbook-init.yaml" \
@@ -71,7 +71,27 @@ ansible-playbook-postinit: ansible-playbook-init
 	ansible-playbook "${DIRECTORY}/IAM/ansible/03-playbook-postinit.yaml" \
 	-e department=${DEPARTMENT} \
 	-e directory=${DIRECTORY} \
-	-e region=${AWS_REGION}
+	-e region=${AWS_REGION} \
+	-e domain_name=${DOMAIN_NAME} 
+
+terraform-iam-provision-postinit: ansible-playbook-postinit
+	cd IAM/terraform && \
+	export AWS_PROFILE=$(AWS_IAM_PROFILE) && \
+	terraform plan -out="env/$(DEPARTMENT)/plan/planfile-postinit" \
+	-var-file="env/$(DEPARTMENT)/variables/$(DEPARTMENT).tfvars" \
+	-var-file="$(DIRECTORY)/IAM/kubernetes/overlays/$(DEPARTMENT)/oidc/thumbprint.tfvars" \
+	-var="pwd=$(DIRECTORY)" \
+	-var="build_phase=postinit" && \
+	terraform apply "env/$(DEPARTMENT)/plan/planfile-postinit"
+
+ansible-playbook-final: terraform-iam-provision-postinit
+	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \
+	cd IAM/ansible/env/${DEPARTMENT} && \
+	ansible-playbook "${DIRECTORY}/IAM/ansible/03-playbook-postinit.yaml" \
+	-e department=${DEPARTMENT} \
+	-e directory=${DIRECTORY} \
+	-e region=${AWS_REGION} \
+	-e domain_name=${DOMAIN_NAME} 
 
 
 

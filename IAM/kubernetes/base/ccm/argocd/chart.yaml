@@ -1,16 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: app
+  name: ccm
   namespace: argocd
-  annotations:
-    argocd.argoproj.io/sync-wave: "5"
 spec:
   project: development
   source:
     repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
-    targetRevision: main 
-    path: IAM/kubernetes/base/nginx/kustomize
+    targetRevision: main
+    path: IAM/kubernetes/base/ccm/kustomize
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system

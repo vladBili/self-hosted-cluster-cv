@@ -1,2 +1,2 @@
 resources:
-  - argocd-app-aws-ccm.yaml
+  - chart.yaml

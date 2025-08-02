@@ -1,14 +1,17 @@
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
-  name: letsencrypt-dex-prod
+  name: letsencrypt-oidc-prod
+  namespace: default
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   acme:
     email: vladshepardcr7@gmail.com
     server: https://acme-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
-      name: letsencrypt-dex-prod-key
+      name: letsencrypt-oidc-prod-key
     solvers:
       - http01:
           ingress:
-            class: alb
+            ingressClassName: oidc-nginx-ingress

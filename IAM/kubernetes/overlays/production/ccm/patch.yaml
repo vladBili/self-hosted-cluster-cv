@@ -3,5 +3,7 @@ kind: Application
 metadata:
   name: ccm
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   project: production

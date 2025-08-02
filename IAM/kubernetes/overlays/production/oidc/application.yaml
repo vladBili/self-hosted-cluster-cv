@@ -1,19 +1,21 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: ccm
+  name: oidc
   namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
   annotations:
-    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-wave: "6"
 spec:
-  project: development
+  project: production
   source:
     repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
-    targetRevision: main
-    path: IAM/kubernetes/base/ccm/kustomize
+    targetRevision: feature/dex-oidc
+    path: IAM/kubernetes/overlays/production/oidc/kustomize
   destination:
     server: https://kubernetes.default.svc
-    namespace: kube-system
+    namespace: oidc
   syncPolicy:
     automated:
       prune: true

@@ -89,6 +89,7 @@ data "aws_iam_policy_document" "iam_permission_boundaries_document" {
       "iam:Detach*",
       "iam:Delete*",
       "iam:Remove*",
+      "iam:Update*",
       "ssm:Describe*",
       "route53:Create*",
       "route53:Get*",
@@ -186,7 +187,8 @@ data "aws_iam_policy_document" "iam_permission_boundaries_document" {
     effect = "Allow"
     actions = [
       "lambda:Get*",
-      "lambda:Delete*"
+      "lambda:Delete*",
+      "lambda:UpdateFunctionConfiguration"
     ]
     resources = [
       "arn:aws:lambda:${var.region}:${var.account_id}:function:*"
@@ -278,6 +280,7 @@ data "aws_iam_policy_document" "iam_permission_boundaries_document" {
       "ec2:Release*",
       "ec2:Detach*",
       "ec2:Delete*",
+      "ec2:ReplaceIamInstanceProfileAssociation",
       "ec2:Terminate*",
       "ec2:AuthorizeSecurityGroup*",
       "ec2:RevokeSecurityGroup*",
@@ -490,7 +493,8 @@ data "aws_iam_policy_document" "iam_policy_documents" {
       "ec2:AssociateAddress",
       "ec2:StopInstances",
       "ec2:Modify*",
-      "ec2:StartInstances"
+      "ec2:StartInstances",
+      "ec2:ReplaceIamInstanceProfileAssociation"
     ]
     resources = ["*"]
   }
@@ -523,7 +527,12 @@ data "aws_iam_policy_document" "iam_policy_documents" {
       "iam:RemoveRoleFromInstanceProfile",
       "iam:GetRole",
       "iam:GetPolicy",
-      "iam:CreateServiceLinkedRole"
+      "iam:CreateServiceLinkedRole",
+      "iam:CreateOpenIDConnectProvider",
+      "iam:TagOpenIDConnectProvider",
+      "iam:GetOpenIDConnectProvider",
+      "iam:DeleteOpenIDConnectProvider",
+      "iam:UpdateAssumeRolePolicy"
     ]
     resources = ["*"]
   }

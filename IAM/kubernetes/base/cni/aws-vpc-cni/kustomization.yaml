@@ -1,2 +1,2 @@
 resources:
-  - argocd-app-aws-vpc-cni.yaml
+  - chart.yaml

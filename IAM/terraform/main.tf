@@ -99,6 +99,8 @@ module "EC2" {
   worker_instance_count = var.worker_instance_count
   worker_instance_type  = var.worker_instance_type
 
+  cluster_phase = module.SSM.ssm_kubernetes_cluster_phase_value
+
   # Network configuration
   networking = {
     vpc_cidr_block      = module.VPC.vpc_cidr_block
@@ -109,7 +111,9 @@ module "EC2" {
   # IAM configuration
   management = {
     iam_instance_profile = {
-      "s3_full_access" : module.IAM.iam_ec2_instance_profile
+      "aws_full_access" : module.IAM.iam_ec2_instance_profile["aws_full_access"],
+      "aws_controlplane_access" : module.IAM.iam_ec2_instance_profile["aws_controlplane_access"]
+      "aws_worker_access" : module.IAM.iam_ec2_instance_profile["aws_worker_access"]
     }
   }
 
@@ -133,12 +137,22 @@ module "SSM" {
   enabled = local.count > 0
   source  = "./modules/SSM"
   parameters = {
-    cluster_phase = var.build_phase
+    cluster_phase   = var.build_phase
+    oidc_thumbprint = var.oidc_thumbprint
+    iam_irsa_arn    = var.build_phase == "preinit" ? {} : module.IAM.iam_irsa_role_arn
   }
 }
 
 module "IAM" {
-  source = "./modules/IAM"
+  source  = "./modules/IAM"
+  enabled = local.count > 0
+  oidc = {
+    oidc = {
+      cluster_phase = var.build_phase
+      domain_name   = var.domain_name
+      thumbprint    = var.oidc_thumbprint
+    }
+  }
 }
 
 

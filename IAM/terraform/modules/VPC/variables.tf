@@ -78,6 +78,11 @@ variable "kubernetes_ingress_security_group" {
       from_port   = 26379,
       to_port     = 26379,
       ip_protocol = "tcp"
+    },
+    "nginx_webhook_tcp" = {
+      from_port   = 8443,
+      to_port     = 8443,
+      ip_protocol = "tcp"
     }
   }
 }

@@ -1,5 +1,0 @@
-resources:
-  - ../../../base/nginx/argocd
-
-patches:
-  - path: patch.yaml

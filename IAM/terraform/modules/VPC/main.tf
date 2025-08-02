@@ -4,7 +4,7 @@ locals {
 
   instance_groups = { for group in ["controlplane", "haproxy", "worker", "bastion"] : group => group }
 
-  bastion_public_ingress_rules = merge(var.ssh_ingress_security_group, var.bastion_ingress_security_group)
+  bastion_public_ingress_rules = merge(var.ssh_ingress_security_group, var.bastion_ingress_security_group, var.web_ingress_security_group)
   bastion_public_ingress_keys  = keys(local.bastion_public_ingress_rules)
 
   haproxy_private_ingress_rules = merge(var.ssh_ingress_security_group, var.haproxy_ingress_security_group, var.web_ingress_security_group)
@@ -39,7 +39,7 @@ resource "aws_subnet" "main_private_subnets" {
     Name                                                   = "${terraform.workspace}-Private-Subnet-${count.index}-${data.aws_region.main_region.name}",
     department                                             = terraform.workspace
     "kubernetes.io/cluster/${terraform.workspace}-cluster" = "owned"
-    "kubernetes.io/role/internal-elb"                      = 1
+    "kubernetes.io/role/internal-elb"                      = "1"
   }
   availability_zone = "${data.aws_region.main_region.name}${var.private_subnet_azs[count.index]}"
 }
@@ -53,7 +53,7 @@ resource "aws_subnet" "main_public_subnets" {
     name                                                   = "${terraform.workspace}-Public-Subnet-${count.index}-${data.aws_region.main_region.name}",
     department                                             = terraform.workspace
     "kubernetes.io/cluster/${terraform.workspace}-cluster" = "owned"
-    "kubernetes.io/role/elb"                               = 1
+    "kubernetes.io/role/elb"                               = "1"
   }
   availability_zone = "${data.aws_region.main_region.name}${var.public_subnet_azs[count.index]}"
 }

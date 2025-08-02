@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oidc-redirect-ingress
+  namespace: default
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/rewrite-target: /openid/v1/jwks
+spec:
+  ingressClassName: oidc-nginx-ingress
+  rules:
+    - host: oidc.vladbilii.click
+      http:
+        paths:
+          - path: /.well-known/jwks.json
+            pathType: Exact
+            backend:
+              service:
+                name: kubernetes
+                port:
+                  number: 443

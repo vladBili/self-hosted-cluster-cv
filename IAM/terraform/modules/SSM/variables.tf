@@ -3,5 +3,4 @@ variable "enabled" {
 }
 
 variable "parameters" {
-  type = map(string)
 }

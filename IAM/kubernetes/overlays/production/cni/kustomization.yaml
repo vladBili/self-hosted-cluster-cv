@@ -1,2 +1,5 @@
 resources:
   - ../../../base/cni/aws-vpc-cni
+
+patchesStrategicMerge:
+  - patch.yaml

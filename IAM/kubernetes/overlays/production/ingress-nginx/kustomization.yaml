@@ -1,0 +1,2 @@
+resources:
+  - argocd-app-oidc-nginx-ingress-controller.yaml

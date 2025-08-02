@@ -36,3 +36,7 @@ variable "networking" {
 
 variable "management" {
 }
+
+variable "cluster_phase" {
+  type = string
+}

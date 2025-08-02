@@ -46,3 +46,78 @@
     - name: Deploy applications
       ansible.builtin.shell: |
         kubectl apply -k "{{ directory }}/IAM/kubernetes/overlays/{{ department }}"
+
+    - name: Wait until OIDC is ready and retrieve thumprint to AWS SSM parameter
+      when: department  == "production"
+      block:
+        - name: Wait until OIDC endpoint is available
+          ansible.builtin.uri:
+            url: "https://oidc.{{ domain_name }}/.well-known/openid-configuration"
+            method: GET
+            return_content: no
+            status_code: 200
+            validate_certs: yes
+          register: oidc_ready
+          until: oidc_ready.status == 200
+          retries: 60
+          delay: 25
+          ignore_errors: no
+
+        - name: Get OIDC thumbprint
+          ansible.builtin.shell: |
+            echo | openssl s_client -servername oidc.{{ domain_name }} -connect oidc.{{ domain_name }}:443 2>/dev/null \
+            | openssl x509 -fingerprint -noout \
+            | sed 's/.*=//;s/://g' | tr '[:upper:]' '[:lower:]'
+          register: oidc_thumbprint
+          changed_when: false
+
+        - name: Save OIDC thumbprint to tfvars file
+          ansible.builtin.copy:
+            dest: "{{ directory }}/IAM/kubernetes/overlays/{{ department }}/oidc/thumbprint.tfvars"
+            content: |
+              oidc_thumbprint = "{{ oidc_thumbprint.stdout }}"
+
+- name: OIDC
+  hosts: controlplane
+  become: true
+  tasks:
+    - name: Insert OIDC options
+      when: department  == "production"
+      block:
+        - name: Ensure OIDC service-account-issuer is present before default issuer
+          ansible.builtin.lineinfile:
+            path: /etc/kubernetes/manifests/kube-apiserver.yaml
+            insertbefore: ".*--service-account-issuer=https://kubernetes.default.svc.cluster.local"
+            line: "    - --service-account-issuer=https://oidc.{{ domain_name }}"
+            state: present
+
+        - name: Ensure OIDC service-account-jwks-uri is present after default service-account-issuer
+          ansible.builtin.lineinfile:
+            path: /etc/kubernetes/manifests/kube-apiserver.yaml
+            insertafter: ".*--service-account-issuer=https://kubernetes.default.svc.cluster.local"
+            line: "    - --service-account-jwks-uri=https://oidc.{{ domain_name }}/.well-known/jwks.json"
+            state: present
+
+- name: IRSA roles
+  hosts: localhost
+  environment:
+    KUBECONFIG: "{{ directory }}/IAM/kubernetes/env/{{ department }}/config/admin.conf"
+  tasks:
+    - name: Load IRSA mappings
+      ansible.builtin.include_vars:
+        file: "{{ directory }}/IAM/kubernetes/overlays/{{ department }}/irsa/sa.yaml"
+        name: irsa
+      ignore_errors: yes
+
+    - name: Annotate service accounts
+      ansible.builtin.shell: |
+        kubectl annotate sa {{ item.sa_name }} \
+          -n {{ item.sa_namespace }} \
+          eks.amazonaws.com/role-arn={{ item.sa_role_arn }} --overwrite
+      loop: "{{ irsa.mapping }}"
+      ignore_errors: yes
+
+    - name: Restart test deployment
+      ansible.builtin.shell: |
+        kubectl rollout restart deployment/irsa-test-deployment -n default
+      ignore_errors: yes

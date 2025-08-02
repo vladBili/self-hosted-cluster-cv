@@ -1,2 +1,0 @@
-resources:
-  - argocd-app-aws-lb-controller.yaml

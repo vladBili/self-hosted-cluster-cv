@@ -1,10 +1,10 @@
 resources:
-  - alb
-  - ccm
   - cni
-  - dex
-  - nginx
-  - ../../base/external-dns
+  - ccm
+  - ingress-nginx
+  - pod-identity
+  - oidc
   - ../../base/cert-manager
+  - ../../base/external-dns
   - argocd-cm-patch.yaml
   - argocd-nodeport-service.yaml

@@ -1,0 +1,6 @@
+mapping:
+%{ for sa_name, sa_values in irsa_dict ~}
+  - sa_name: ${sa_name}
+    sa_namespace: ${sa_values.namespace}
+    sa_role_arn: ${irsa_role[sa_name].arn}
+%{ endfor }
