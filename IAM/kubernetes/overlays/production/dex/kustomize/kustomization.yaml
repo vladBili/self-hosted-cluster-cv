@@ -13,11 +13,7 @@ helmCharts:
       config:
         issuer: https://dex.vladbilii.click
         storage:
-          type: etcd
-          config:
-            endpoints:
-              - http://localhost:2379
-            namespace: kube-system
+          type: memory
         enablePasswordDB: true
 
 resources:

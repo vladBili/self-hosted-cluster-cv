@@ -6,4 +6,5 @@ resources:
   - nginx
   - ../../base/external-dns
   - ../../base/cert-manager
+  - argocd-cm-patch.yaml
   - argocd-nodeport-service.yaml

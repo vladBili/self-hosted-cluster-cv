@@ -42,8 +42,7 @@ terraform-iam-provision-preinit: terraform-iam-init
 	cd IAM/terraform && \
 	export AWS_PROFILE=$(AWS_IAM_PROFILE) && \
 	terraform plan -out="env/$(DEPARTMENT)/plan/planfile-preinit" -var-file="env/$(DEPARTMENT)/variables/$(DEPARTMENT).tfvars" \
-	-var="pwd=${DIRECTORY}" -var="build_phase=preinit" && \
-	terraform apply "env/$(DEPARTMENT)/plan/planfile-preinit"
+	-var="pwd=${DIRECTORY}" -var="build_phase=preinit"
 
 ansible-playbook-preinit: terraform-iam-provision-preinit
 	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \

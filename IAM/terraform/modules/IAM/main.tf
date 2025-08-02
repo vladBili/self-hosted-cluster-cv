@@ -52,7 +52,8 @@ data "aws_iam_policy_document" "iam_ec2_role_document" {
       "ec2:*",
       "route53:*",
       "ecr:*",
-      "ecr-public:*"
+      "ecr-public:*",
+      "acm:*"
     ]
     resources = ["*"]
   }
