@@ -11,7 +11,7 @@ spec:
   project: production
   source:
     repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
-    targetRevision: feature/dex-oidc
+    targetRevision: main
     path: IAM/kubernetes/overlays/production/oidc/kustomize
   destination:
     server: https://kubernetes.default.svc
