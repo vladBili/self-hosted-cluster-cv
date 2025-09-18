@@ -1,0 +1,2 @@
+OPENVPN_DIR_PATH: /tmp/openvpn/easyrsa3
+OPENVPN_CFG_PATH: /etc/openvpn/server

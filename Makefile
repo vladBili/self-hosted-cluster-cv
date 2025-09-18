@@ -7,9 +7,6 @@ AWS_REGION = eu-central-1
 
 DOMAIN_NAME = vladbilii.click
 
-include .env
-export
-
 all: ansible-playbook-final
 
 terraform-root-provision-backend:
@@ -50,17 +47,17 @@ terraform-iam-provision-preinit: terraform-iam-init
 ansible-playbook-preinit: terraform-iam-provision-preinit
 	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \
 	cd IAM/ansible/env/${DEPARTMENT} && \
-	ansible-playbook "${DIRECTORY}/IAM/ansible/01-playbook-preinit.yaml" \
-	-e department=${DEPARTMENT} \
-	-e directory=${DIRECTORY} \
+	ansible-playbook "${DIRECTORY}/IAM/ansible/playbook/01-playbook-preinit.yaml" \
+	-e DEPARTMENT=${DEPARTMENT} \
+	-e DIRECTORY=${DIRECTORY} \
 	-e region=${AWS_REGION}
 
 ansible-playbook-init: ansible-playbook-preinit
 	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \
 	cd IAM/ansible/env/${DEPARTMENT} && \
-	ansible-playbook "${DIRECTORY}/IAM/ansible/02-playbook-init.yaml" \
-	-e department=${DEPARTMENT} \
-	-e directory=${DIRECTORY} \
+	ansible-playbook "${DIRECTORY}/IAM/ansible/playbook/02-playbook-init.yaml" \
+	-e DEPARTMENT=${DEPARTMENT} \
+	-e DIRECTORY=${DIRECTORY} \
 	-e region=${AWS_REGION} \
 	-e domain_name=${DOMAIN_NAME} \
 	-e email="${CERTBOT_EMAIL}"
@@ -68,9 +65,9 @@ ansible-playbook-init: ansible-playbook-preinit
 ansible-playbook-postinit: ansible-playbook-init
 	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \
 	cd IAM/ansible/env/${DEPARTMENT} && \
-	ansible-playbook "${DIRECTORY}/IAM/ansible/03-playbook-postinit.yaml" \
-	-e department=${DEPARTMENT} \
-	-e directory=${DIRECTORY} \
+	ansible-playbook "${DIRECTORY}/IAM/ansible/playbook/03-playbook-postinit.yaml" \
+	-e DEPARTMENT=${DEPARTMENT} \
+	-e DIRECTORY=${DIRECTORY} \
 	-e region=${AWS_REGION} \
 	-e domain_name=${DOMAIN_NAME} 
 
@@ -87,9 +84,9 @@ terraform-iam-provision-postinit: ansible-playbook-postinit
 ansible-playbook-final: terraform-iam-provision-postinit
 	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \
 	cd IAM/ansible/env/${DEPARTMENT} && \
-	ansible-playbook "${DIRECTORY}/IAM/ansible/03-playbook-postinit.yaml" \
-	-e department=${DEPARTMENT} \
-	-e directory=${DIRECTORY} \
+	ansible-playbook "${DIRECTORY}/IAM/ansible/playbook/03-playbook-postinit.yaml" \
+	-e DEPARTMENT=${DEPARTMENT} \
+	-e DIRECTORY=${DIRECTORY} \
 	-e region=${AWS_REGION} \
 	-e domain_name=${DOMAIN_NAME} 
 

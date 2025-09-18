@@ -1,0 +1,28 @@
+- name: Add SSH config block for private nodes
+  ansible.builtin.blockinfile:
+    path: "{{ SSH_CONFIG_PATH }}"
+    create: true
+    block: |
+      {% for host in groups['bastion'] %}
+      Host {{ hostvars[host]['inventory_hostname'] }}
+        HostName {{ hostvars[host]['ansible_host'] }}
+        User ec2-user
+        IdentityFile {{ SSH_KEY_PATH }}
+
+      {% endfor %}
+
+      {% for host in groups['private'] %}
+      Host {{ hostvars[host]['inventory_hostname'] }}
+        HostName {{ hostvars[host]['ansible_host'] }}
+        User ec2-user
+        IdentityFile {{ SSH_KEY_PATH }}
+        ProxyJump {{ groups['bastion'][0] }}
+
+      {% endfor %}
+
+- name: Scan and add all host keys
+  ansible.builtin.known_hosts:
+    name: "{{ hostvars[item]['ansible_host'] }}"
+    key: "{{ lookup('pipe', 'ssh-keyscan -H ' + (hostvars[item]['ansible_host'])) }}"
+    path: "~/.ssh/known_hosts"
+  loop: "{{ groups['bastion'] }}"

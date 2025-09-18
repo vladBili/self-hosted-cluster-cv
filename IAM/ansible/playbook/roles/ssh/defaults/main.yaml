@@ -1,0 +1,2 @@
+SSH_CONFIG_PATH: "~/.ssh/config"
+SSH_KEY_PATH: "{{ DIRECTORY }}/IAM/ansible/env/{{ DEPARTMENT }}/keys/key.pem"
