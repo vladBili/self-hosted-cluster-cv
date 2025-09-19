@@ -3,6 +3,7 @@
   hosts: localhost
   roles:
     - role: kubernetes_cluster_phase
+      when: DEPARTMENT  == "production"
 
 - name: Configure HAProxy server
   hosts: haproxy
@@ -10,6 +11,7 @@
   gather_facts: true
   roles:
     - role: haproxy_server
+      when: DEPARTMENT  == "production"
 
 - name: Bake AMI
   hosts: "{{ 'all' if (PACKER | default('false') | bool) else 'worker:controlplane' }}"

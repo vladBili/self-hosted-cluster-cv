@@ -1,0 +1,69 @@
+- name: Label nodes
+  ansible.builtin.command:
+    cmd: kubectl label node {{ item }} node-role.kubernetes.io/worker=
+  loop: "{{ groups['worker'] }}"
+
+- name: Deploy CNI
+  ansible.builtin.shell: |
+    helm repo add eks https://aws.github.io/eks-charts || true
+    helm repo update
+    helm upgrade --install aws-vpc-cni eks/aws-vpc-cni \
+    --namespace kube-system \
+    --version 1.20.0 \
+    --set env.ENABLE_PREFIX_DELEGATION=true \
+    --set env.NETWORK_POLICY_ENFORCING_MODE=standard
+
+- name: Deploy CCM
+  ansible.builtin.command:
+    cmd: kubectl apply -k https://github.com/kubernetes/cloud-provider-aws//examples/existing-cluster/base?ref=master
+
+- name: Deploy ArgoCD
+  ansible.builtin.shell: |
+    helm repo add argo https://argoproj.github.io/argo-helm || true
+    helm repo update
+    helm upgrade --install argocd argo/argo-cd \
+      --create-namespace \
+      --namespace argocd \
+      --set redis-ha.enabled={{ HA_ENABLED }} \
+      --set controller.replicas={{ CP_COUNT }} \
+      --set server.replicas={{ CP_COUNT }} \
+      --set repoServer.replicas={{ CP_COUNT }} \
+      --set applicationSet.replicas={{ CP_COUNT }}
+
+- name: Deploy argocd projects
+  ansible.builtin.command:
+    cmd: kubectl apply -f "{{ DIRECTORY }}/IAM/argocd/{{ DEPARTMENT }}/projects"
+
+- name: Deploy applications
+  ansible.builtin.shell:
+    cmd: kubectl apply -k "{{ DIRECTORY }}/IAM/kubernetes/overlays/{{ DEPARTMENT }}"
+
+- name: Wait until OIDC is ready and retrieve thumprint to AWS SSM parameter
+  when: DEPARTMENT  == "production"
+  block:
+    - name: Wait until OIDC endpoint is available
+      ansible.builtin.uri:
+        url: "https://oidc.{{ DOMAIN_NAME }}/.well-known/openid-configuration"
+        method: GET
+        return_content: no
+        status_code: 200
+        validate_certs: yes
+      register: OIDC_READY
+      until: OIDC_READY.status == 200
+      retries: 60
+      delay: 25
+      ignore_errors: no
+
+    - name: Get OIDC thumbprint
+      ansible.builtin.shell: |
+        echo | openssl s_client -servername oidc.{{ DOMAIN_NAME }} -connect oidc.{{ DOMAIN_NAME }}:443 2>/dev/null \
+        | openssl x509 -fingerprint -noout \
+        | sed 's/.*=//;s/://g' | tr '[:upper:]' '[:lower:]'
+      register: OIDC_THUMBPRINT
+      changed_when: false
+
+    - name: Save OIDC thumbprint to tfvars file
+      ansible.builtin.copy:
+        dest: "{{ DIRECTORY }}/IAM/kubernetes/overlays/{{ DEPARTMENT }}/oidc/thumbprint.tfvars"
+        content: |
+          oidc_thumbprint = "{{ OIDC_THUMBPRINT.stdout }}"
