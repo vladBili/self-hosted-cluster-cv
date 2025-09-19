@@ -7,6 +7,10 @@ AWS_REGION = eu-central-1
 
 DOMAIN_NAME = vladbilii.click
 
+KUBERNETES_CREDENTIAL_PROVIDER = true
+
+PACKER ?= false
+
 all: ansible-playbook-final
 
 terraform-root-provision-backend:
@@ -50,7 +54,7 @@ ansible-playbook-preinit: terraform-iam-provision-preinit
 	ansible-playbook "${DIRECTORY}/IAM/ansible/playbook/01-playbook-preinit.yaml" \
 	-e DEPARTMENT=${DEPARTMENT} \
 	-e DIRECTORY=${DIRECTORY} \
-	-e region=${AWS_REGION}
+	-e REGION=${AWS_REGION}
 
 ansible-playbook-init: ansible-playbook-preinit
 	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \
@@ -58,9 +62,9 @@ ansible-playbook-init: ansible-playbook-preinit
 	ansible-playbook "${DIRECTORY}/IAM/ansible/playbook/02-playbook-init.yaml" \
 	-e DEPARTMENT=${DEPARTMENT} \
 	-e DIRECTORY=${DIRECTORY} \
-	-e region=${AWS_REGION} \
-	-e domain_name=${DOMAIN_NAME} \
-	-e email="${CERTBOT_EMAIL}"
+	-e REGION=${AWS_REGION} \
+	-e CREDENTIAL_PROVIDER=${KUBERNETES_CREDENTIAL_PROVIDER} \
+	-e PACKER=${PACKER}
 
 ansible-playbook-postinit: ansible-playbook-init
 	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \
@@ -68,8 +72,8 @@ ansible-playbook-postinit: ansible-playbook-init
 	ansible-playbook "${DIRECTORY}/IAM/ansible/playbook/03-playbook-postinit.yaml" \
 	-e DEPARTMENT=${DEPARTMENT} \
 	-e DIRECTORY=${DIRECTORY} \
-	-e region=${AWS_REGION} \
-	-e domain_name=${DOMAIN_NAME} 
+	-e REGION=${AWS_REGION} \
+	-e DOMAIN_NAME=${DOMAIN_NAME} 
 
 terraform-iam-provision-postinit: ansible-playbook-postinit
 	cd IAM/terraform && \
@@ -87,8 +91,8 @@ ansible-playbook-final: terraform-iam-provision-postinit
 	ansible-playbook "${DIRECTORY}/IAM/ansible/playbook/03-playbook-postinit.yaml" \
 	-e DEPARTMENT=${DEPARTMENT} \
 	-e DIRECTORY=${DIRECTORY} \
-	-e region=${AWS_REGION} \
-	-e domain_name=${DOMAIN_NAME} 
+	-e REGION=${AWS_REGION} \
+	-e DOMAIN_NAME=${DOMAIN_NAME} 
 
 
 

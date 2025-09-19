@@ -1,5 +1,5 @@
 - name: Install packages
-  ansible.builtin.yum:
+  ansible.builtin.dnf:
     name:
       - git
       - openssl
@@ -93,18 +93,18 @@
     enabled: true
 
 - name: Create NAT table if not exists
-  ansible.builtin.command: >
-    nft add table ip nat
+  ansible.builtin.command:
+    cmd: nft add table ip nat
   ignore_errors: true
 
 - name: Create postrouting chain if not exists
-  ansible.builtin.command: >
-    nft add chain ip nat postrouting { type nat hook postrouting priority 100 \; }
+  ansible.builtin.command:
+    cmd: nft add chain ip nat postrouting { type nat hook postrouting priority 100 \; }
   ignore_errors: true
 
 - name: Add NAT masquerade rule
-  ansible.builtin.command: >
-    nft add rule ip nat postrouting ip saddr 10.0.5.0/24 oif {{ ansible_default_ipv4.interface }} masquerade
+  ansible.builtin.command:
+    cmd: nft add rule ip nat postrouting ip saddr 10.0.5.0/24 oif {{ ansible_default_ipv4.interface }} masquerade
   ignore_errors: true
 
 - name: Enable and start OpenVPN server

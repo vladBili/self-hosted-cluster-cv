@@ -1,0 +1,338 @@
+#1.CNI prerequisites
+- name: Set SELinux to permissive mode # /etc/selinux/config
+  ansible.posix.selinux:
+    policy: targeted
+    state: permissive
+
+- name: Persist required kernel modules # /etc/modules-load.d/k8s.conf
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/k8s.conf
+    content: |
+      br_netfilter
+      overlay
+    mode: "0644"
+
+- name: Ensure required kernel modules are loaded
+  ansible.builtin.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - br_netfilter
+    - overlay
+
+- name: Set sysctl params (runtime) # /etc/sysctl.conf
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  loop:
+    - { name: net.ipv4.conf.all.rp_filter, value: "0" }
+    - { name: net.ipv4.conf.default.rp_filter, value: "0" }
+    - { name: net.ipv4.ip_forward, value: "1" }
+    - { name: net.bridge.bridge-nf-call-iptables, value: "1" }
+
+- name: Set sysctl params (persist) # /etc/sysctl.d/99-kubernetes-cri.conf
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-kubernetes-cri.conf
+    content: |
+      net.ipv4.conf.all.rp_filter=0
+      net.ipv4.conf.default.rp_filter=0
+      net.ipv4.ip_forward=1
+      net.bridge.bridge-nf-call-iptables=1
+
+- name: Ensure /etc/systemd/network directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/network
+    state: directory
+  register: systemd_network_directory
+
+- name: Disable MACAddressPolicy=persistent # /etc/systemd/network/99-custom.link
+  ansible.builtin.copy:
+    dest: "{{systemd_network_directory.path}}/99-custom.link"
+    content: |
+      [Match]
+      OriginalName=*
+
+      [Link]
+      MACAddressPolicy=none
+
+- name: Restart systemd-udevd to apply new link configuration
+  ansible.builtin.systemd:
+    name: systemd-udevd
+    state: restarted
+
+- name: Trigger udev to apply network link changes
+  ansible.builtin.command:
+    cmd: udevadm trigger
+  become: true
+
+- name: Reboot the instance to fully apply MACAddressPolicy change
+  when: not PACKER | bool
+  ansible.builtin.reboot:
+    msg: "Rebooting to apply systemd network link policy change"
+    connect_timeout: 10
+    reboot_timeout: 300
+
+# 2.Kubernetes prerequisites
+# 2.1 kubeadm, kubelet, kubectl
+- name: Install packages
+  ansible.builtin.dnf:
+    name:
+      - curl-minimal
+      - tar
+      - gzip
+      - git
+      - nftables
+    state: present
+    update_cache: yes
+
+- name: Enable and start nftables service
+  ansible.builtin.systemd:
+    name: nftables
+    state: started
+    enabled: yes
+
+- name: Add Kubernetes repo
+  ansible.builtin.yum_repository:
+    name: kubernetes
+    description: Kubernetes repo
+    baseurl: https://pkgs.k8s.io/core:/stable:/v{{ K8S_VERSION }}/rpm/
+    enabled: yes
+    gpgcheck: yes
+    repo_gpgcheck: yes
+    gpgkey: https://pkgs.k8s.io/core:/stable:/v{{ K8S_VERSION }}/rpm/repodata/repomd.xml.key
+
+- name: Install Kubernetes packages
+  ansible.builtin.dnf:
+    name:
+      - "kubeadm-{{ K8S_VERSION }}*"
+      - "kubelet-{{ K8S_VERSION}}*"
+      - "kubectl-{{ K8S_VERSION }}*"
+    state: present
+
+- name: Enable and start kubelet service
+  ansible.builtin.systemd:
+    name: kubelet
+    state: started
+    enabled: true
+
+# 2.2 containerd
+- name: Ensure /usr/local directory exists
+  ansible.builtin.file:
+    path: /usr/local
+    state: directory
+
+- name: Create temporary containerd directory
+  ansible.builtin.file:
+    path: /tmp/containerd
+    state: directory
+  register: CONTAINERD_TEMP_DIR
+
+- name: Create directory for containerd service
+  ansible.builtin.file:
+    path: /usr/local/lib/systemd/system/
+    state: directory
+  register: CONTAINERD_SVC_DIR
+
+- name: Create directory for containerd configuration
+  ansible.builtin.file:
+    path: /etc/containerd
+    state: directory
+  register: CONTAINERD_CFG_DIR
+
+- name: Download containerd archive
+  ansible.builtin.get_url:
+    url: "https://github.com/containerd/containerd/releases/download/v{{ CONTAINERD_VERSION }}/containerd-{{ CONTAINERD_VERSION }}-linux-amd64.tar.gz"
+    dest: "{{ CONTAINERD_TEMP_DIR.path }}/containerd-{{ CONTAINERD_VERSION }}-linux-amd64.tar.gz"
+  register: CONTAINERD_BIN_FILE
+
+- name: Extract containerd archive
+  ansible.builtin.unarchive:
+    src: "{{ CONTAINERD_BIN_FILE.dest }}"
+    dest: /usr/local
+    remote_src: yes
+
+- name: Download containerd service
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/containerd/containerd/main/containerd.service
+    dest: "{{ CONTAINERD_TEMP_DIR.path }}/containerd.service"
+  register: CONTAINERD_SVC_FILE
+
+- name: Copy containerd service file to containerd service directory
+  ansible.builtin.copy:
+    src: "{{ CONTAINERD_SVC_FILE.dest }}"
+    dest: "{{ CONTAINERD_SVC_DIR.path }}"
+    remote_src: true
+
+- name: Reload systemd and enable containerd
+  ansible.builtin.systemd_service:
+    name: containerd
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Generate containerd config with SystemdCgroup set to true
+  ansible.builtin.shell: |
+    containerd config default | sed 's/^\s*ShimCgroup = false/SystemdCgroup = true/' > {{ CONTAINERD_CFG_DIR.path }}/config.toml
+  args:
+    creates: "{{ CONTAINERD_CFG_DIR.path }}/config.toml"
+
+- name: Restart containerd
+  ansible.builtin.systemd_service:
+    name: containerd
+    state: restarted
+
+# 2.3 runc
+- name: Ensure /usr/local/sbin directory exists
+  ansible.builtin.file:
+    path: /usr/local/sbin
+    state: directory
+
+- name: Create temporary runc directory
+  ansible.builtin.file:
+    path: /tmp/runc
+    state: directory
+  register: RUNC_TEMP_DIR
+
+- name: Download runc
+  ansible.builtin.get_url:
+    url: "https://github.com/opencontainers/runc/releases/download/v{{ RUNC_VERSION }}/runc.amd64"
+    dest: "{{ RUNC_TEMP_DIR.path }}/runc.amd64"
+  register: RUNC_BIN_FILE
+
+- name: Install runc binary
+  ansible.builtin.command:
+    cmd: "install -m 755 {{ RUNC_BIN_FILE.dest }} /usr/local/sbin/runc"
+    creates: /usr/local/sbin/runc
+
+# 2.4 CNI
+- name: Create directory for CNI plugin binaries
+  ansible.builtin.file:
+    path: /opt/cni/bin
+    state: directory
+
+- name: Create directory for CNI configuration files
+  ansible.builtin.file:
+    path: /etc/cni/net.d
+    state: directory
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Restart kubelet
+  ansible.builtin.systemd:
+    name: kubelet
+    enabled: yes
+    state: restarted
+
+# Helm
+- name: Create temporary Helm directory
+  ansible.builtin.file:
+    path: /tmp/helm
+    state: directory
+  register: HELM_TEMP_DIR
+
+- name: Download Helm archive
+  ansible.builtin.get_url:
+    url: "https://get.helm.sh/helm-v{{ HELM_VERSION }}-linux-amd64.tar.gz"
+    dest: "{{ HELM_TEMP_DIR.path }}/helm-{{ HELM_VERSION }}.tar.gz"
+  register: HELM_ARCH_FILE
+
+- name: Extract Helm archive
+  ansible.builtin.unarchive:
+    src: "{{ HELM_ARCH_FILE.dest }}"
+    dest: "{{ HELM_TEMP_DIR.path }}"
+    remote_src: yes
+
+- name: Move Helm binary to /usr/local/bin
+  ansible.builtin.copy:
+    src: "{{ HELM_TEMP_DIR.path }}/linux-amd64/helm"
+    dest: "/usr/local/bin/helm"
+    remote_src: yes
+
+# Credential provider
+- name: Kubelet Credential Provider block
+  when: CREDENTIAL_PROVIDER | bool
+  block:
+    - name: Create temporary GO directory
+      ansible.builtin.file:
+        path: /tmp/go
+        state: directory
+      register: GO_TEMP_DIR
+
+    - name: Create temporary CP directory
+      ansible.builtin.file:
+        path: "{{ GO_TEMP_DIR.path }}/cp"
+        state: directory
+      register: CP_TEMP_DIR
+
+    - name: Download Go # /tmp/go/go1.25.1.linux-amd64.tar.gz
+      ansible.builtin.get_url:
+        url: "https://go.dev/dl/go{{ GO_VERSION }}.linux-amd64.tar.gz"
+        dest: "{{ GO_TEMP_DIR.path }}/go{{ GO_VERSION }}.linux-amd64.tar.gz"
+      register: GO_BIN_FILE
+
+    - name: Extract Go
+      ansible.builtin.unarchive:
+        src: "{{ GO_BIN_FILE.dest }}"
+        dest: /usr/local
+        remote_src: yes
+
+    - name: Set Go path system-wide
+      ansible.builtin.copy:
+        dest: /etc/profile.d/go.sh
+        content: |
+          export GOROOT=/usr/local/go
+          export GOPATH=$HOME/go
+          export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
+        mode: "0755"
+
+    - name: Apply Go PATH immediately for Ansible tasks
+      ansible.builtin.shell: |
+        export PATH=$PATH:/usr/local/go/bin
+        go version
+      environment:
+        PATH: "/usr/local/go/bin:{{ ansible_env.PATH }}"
+      args:
+        executable: /bin/bash
+
+    - name: Create directory for credential provider binary
+      ansible.builtin.file:
+        path: "/usr/local/bin"
+        state: directory
+
+    - name: Git clone aws-cloud-provider
+      ansible.builtin.git:
+        repo: https://github.com/kubernetes/cloud-provider-aws.git
+        dest: "{{ CP_TEMP_DIR.path }}"
+        version: master
+
+    - name: Build credential-provider
+      ansible.builtin.shell: |
+        export PATH=$PATH:/usr/local/go/bin
+        go version 
+        go build -o credential-provider
+      args:
+        chdir: "{{ CP_TEMP_DIR.path }}/cmd/ecr-credential-provider"
+        executable: /bin/bash
+
+    - name: Copy to kubelet executive path
+      ansible.builtin.copy:
+        src: "{{ CP_TEMP_DIR.path }}/cmd/ecr-credential-provider/credential-provider"
+        dest: "/usr/local/bin/credential-provider"
+        mode: "0755"
+        remote_src: yes
+
+    - name: Template credential provider config
+      ansible.builtin.template:
+        src: "{{ DIRECTORY }}/IAM/kubernetes/env/{{ DEPARTMENT }}/kubelet/credential_provider_conf.yaml.j2"
+        dest: "{{ DIRECTORY }}/IAM/kubernetes/env/{{ DEPARTMENT }}/kubelet/credential_provider_conf.yaml"
+      delegate_to: localhost
+      become: false
+
+    - name: Copy credential provider config template to all nodes
+      ansible.builtin.copy:
+        src: "{{ DIRECTORY }}/IAM/kubernetes/env/{{ DEPARTMENT  }}/kubelet/credential_provider_conf.yaml"
+        dest: "/etc/kubernetes/credential-provider-config.yaml"

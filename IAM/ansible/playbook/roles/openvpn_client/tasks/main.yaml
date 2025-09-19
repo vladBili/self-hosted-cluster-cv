@@ -1,23 +1,23 @@
 - name: Read CA cert
   ansible.builtin.slurp:
     src: "{{ DIRECTORY }}/IAM/openvpn/{{ DEPARTMENT }}/configuration/ca.crt"
-  register: ca
+  register: CA
 
 - name: Read client cert
   ansible.builtin.slurp:
     src: "{{ DIRECTORY }}/IAM/openvpn/{{ DEPARTMENT }}/configuration/client1.domain.tld.crt"
-  register: cert
+  register: CERT
 
 - name: Read client key
   ansible.builtin.slurp:
     src: "{{ DIRECTORY }}/IAM/openvpn/{{ DEPARTMENT }}/configuration/client1.domain.tld.key"
-  register: key
+  register: KEY
 
 - name: Create client OVPN config
   ansible.builtin.template:
     src: "{{ DIRECTORY }}/IAM/openvpn/{{ DEPARTMENT }}/templates/client.ovpn.j2"
     dest: "{{ DIRECTORY }}/IAM/openvpn/{{ DEPARTMENT }}/configuration/client.ovpn"
   vars:
-    ca_cert: "{{ ca.content | b64decode }}"
-    client_cert: "{{ cert.content | b64decode }}"
-    client_key: "{{ key.content | b64decode }}"
+    ca_cert: "{{ CA.content | b64decode }}"
+    client_cert: "{{ CERT.content | b64decode }}"
+    client_key: "{{ KEY.content | b64decode }}"
