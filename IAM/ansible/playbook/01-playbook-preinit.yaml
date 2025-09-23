@@ -1,0 +1,17 @@
+---
+- name: Configure SSH
+  hosts: localhost
+  roles:
+    - role: ssh
+
+- name: Configure OpenVPN server
+  hosts: bastion
+  become: true
+  gather_facts: true
+  roles:
+    - role: openvpn_server
+
+- name: Configure OpenVPN client
+  hosts: localhost
+  roles:
+    - role: openvpn_client

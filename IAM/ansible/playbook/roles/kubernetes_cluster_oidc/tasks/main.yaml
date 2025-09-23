@@ -1,0 +1,34 @@
+- name: Ensure OIDC service-account-issuer is present before default issuer
+  ansible.builtin.lineinfile:
+    path: /etc/kubernetes/manifests/kube-apiserver.yaml
+    insertbefore: ".*--service-account-issuer=https://kubernetes.default.svc.cluster.local"
+    line: "    - --service-account-issuer=https://oidc.{{ DOMAIN_NAME }}"
+    state: present
+
+- name: Ensure OIDC service-account-jwks-uri is present after default service-account-issuer
+  ansible.builtin.lineinfile:
+    path: /etc/kubernetes/manifests/kube-apiserver.yaml
+    insertafter: ".*--service-account-issuer=https://kubernetes.default.svc.cluster.local"
+    line: "    - --service-account-jwks-uri=https://oidc.{{ DOMAIN_NAME }}/.well-known/jwks.json"
+    state: present
+
+- name: IRSA block
+  delegate_to: localhost
+  become: false
+  ignore_errors: yes
+  block:
+    - name: Load IRSA mappings
+      ansible.builtin.include_vars:
+        file: "{{ DIRECTORY }}/IAM/kubernetes/overlays/{{ DEPARTMENT }}/irsa/sa.yaml"
+        name: IRSA
+
+    - name: Annotate service accounts
+      ansible.builtin.shell: |
+        kubectl annotate sa {{ item.sa_name }} \
+          -n {{ item.sa_namespace }} \
+          eks.amazonaws.com/role-arn={{ item.sa_role_arn }} --overwrite
+      loop: "{{ IRSA.mapping }}"
+
+    - name: Restart test deployment
+      ansible.builtin.command:
+        cmd: kubectl rollout restart deployment/irsa-test-deployment -n default

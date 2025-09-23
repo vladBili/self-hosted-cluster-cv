@@ -1,0 +1,36 @@
+---
+- name: Fetch cluster phase from SSM
+  hosts: localhost
+  roles:
+    - role: kubernetes_cluster_phase
+      when: DEPARTMENT  == "production"
+
+- name: Configure HAProxy server
+  hosts: haproxy
+  become: true
+  gather_facts: true
+  roles:
+    - role: haproxy_server
+      when: DEPARTMENT  == "production"
+
+- name: Bake AMI
+  hosts: "{{ 'default' if (PACKER | default('false') | bool) else 'worker:controlplane' }}"
+  become: true
+  gather_facts: true
+  roles:
+    - role: kubernetes_cluster_ami
+  tags: [packer]
+
+- name: Init primary controlplane node
+  hosts: "{{ groups['controlplane'][0] }}"
+  become: true
+  gather_facts: true
+  roles:
+    - role: kubernetes_cluster_init
+
+- name: Join other nodes
+  hosts: "{{ groups['controlplane'][1:] + groups['worker']}}"
+  become: true
+  gather_facts: true
+  roles:
+    - role: kubernetes_cluster_join

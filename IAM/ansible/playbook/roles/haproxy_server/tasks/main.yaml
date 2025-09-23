@@ -1,0 +1,27 @@
+- name: Install HAProxy
+  when: DEPARTMENT  == "production" and hostvars["localhost"]["cluster_phase"] == "preinit"
+  block:
+    - name: Install packages
+      ansible.builtin.dnf:
+        name:
+          - haproxy
+        state: present
+        update_cache: yes
+
+    - name: Templating HAProxy conf file
+      ansible.builtin.template:
+        src: "{{ DIRECTORY }}/IAM/haproxy/{{ DEPARTMENT }}/templates/haproxy.cfg.j2"
+        dest: "{{ DIRECTORY }}/IAM/haproxy/{{ DEPARTMENT  }}/configuration/haproxy.cfg"
+      delegate_to: localhost
+      become: false
+
+    - name: Copy HAProxy template conf file
+      ansible.builtin.copy:
+        src: "{{ DIRECTORY }}/IAM/haproxy/{{ DEPARTMENT }}/configuration/haproxy.cfg"
+        dest: /etc/haproxy/haproxy.cfg
+
+    - name: Enable and restart HAProxy service
+      ansible.builtin.systemd:
+        name: haproxy
+        enabled: yes
+        state: restarted

@@ -1,0 +1,14 @@
+- name: Get cluster phase from AWS SSM
+  ansible.builtin.command: >
+    aws ssm get-parameter
+    --name "/kubernetes/{{ DEPARTMENT }}/cluster_phase"
+    --region {{ REGION }}
+    --query "Parameter.Value"
+    --output text
+  environment:
+    AWS_PROFILE: "{{ DEPARTMENT }}-user"
+  register: CLUSTER_PHASE
+
+- name: Set cluster_phase fact to localhost hostvars
+  ansible.builtin.set_fact:
+    cluster_phase: "{{ CLUSTER_PHASE.stdout }}"

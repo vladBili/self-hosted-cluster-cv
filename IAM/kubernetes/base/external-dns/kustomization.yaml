@@ -1,3 +1,0 @@
-resources:
-  - argocd-app-public-external-dns.yaml
-  - argocd-app-private-external-dns.yaml

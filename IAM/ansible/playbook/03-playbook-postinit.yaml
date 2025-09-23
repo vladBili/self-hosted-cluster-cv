@@ -1,0 +1,16 @@
+---
+- name: Kubernetes
+  hosts: localhost
+  environment:
+    KUBECONFIG: "{{ DIRECTORY }}/IAM/kubernetes/env/{{ DEPARTMENT }}/config/admin.conf"
+  roles:
+    - role: kubernetes_cluster_deploy
+
+- name: OIDC
+  hosts: controlplane
+  become: true
+  environment:
+    KUBECONFIG: "{{ DIRECTORY }}/IAM/kubernetes/env/{{ DEPARTMENT }}/config/admin.conf"
+  roles:
+    - role: kubernetes_cluster_oidc
+      when: DEPARTMENT  == "production"

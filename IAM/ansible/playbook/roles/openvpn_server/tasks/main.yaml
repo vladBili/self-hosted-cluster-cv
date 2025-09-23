@@ -1,0 +1,133 @@
+- name: Install packages
+  ansible.builtin.dnf:
+    name:
+      - git
+      - openssl
+      - nftables
+      - openvpn
+    state: present
+    update_cache: yes
+
+- name: Create temp folder for OpenVPN
+  ansible.builtin.file:
+    path: /tmp/openvpn
+    state: directory
+
+- name: Clone OpenVPN
+  ansible.builtin.git:
+    repo: https://github.com/OpenVPN/easy-rsa.git
+    dest: /tmp/openvpn
+
+- name: Easy-RSA setup
+  block:
+    - name: Initialize PKI
+      ansible.builtin.command:
+        cmd: ./easyrsa init-pki
+        chdir: "{{ OPENVPN_DIR_PATH }}"
+
+    - name: Build CA
+      ansible.builtin.command:
+        cmd: ./easyrsa build-ca nopass
+        chdir: "{{ OPENVPN_DIR_PATH }}"
+
+    - name: Generate the server certificate and key
+      ansible.builtin.command:
+        cmd: ./easyrsa --san=DNS:server build-server-full server nopass
+        chdir: "{{ OPENVPN_DIR_PATH }}"
+
+    - name: Generate the client certificate and key
+      ansible.builtin.command:
+        cmd: ./easyrsa build-client-full client1.domain.tld nopass
+        chdir: "{{ OPENVPN_DIR_PATH }}"
+  environment:
+    EASYRSA_BATCH: "1"
+    EASYRSA_REQ_CN: "VPN-CA"
+
+- name: Copy server.conf
+  ansible.builtin.copy:
+    src: "{{ DIRECTORY }}/IAM/openvpn/{{ DEPARTMENT }}/templates/server.conf"
+    dest: /etc/openvpn/server/server.conf
+
+- name: Copy OpenVPN certificates and keys
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    remote_src: true
+  loop:
+    - {
+        src: "{{ OPENVPN_DIR_PATH }}/pki/ca.crt",
+        dest: "{{ OPENVPN_CFG_PATH }}/ca.crt",
+      }
+    - {
+        src: "{{ OPENVPN_DIR_PATH }}/pki/issued/server.crt",
+        dest: "{{ OPENVPN_CFG_PATH }}/server.crt",
+      }
+    - {
+        src: "{{ OPENVPN_DIR_PATH }}/pki/private/server.key",
+        dest: "{{ OPENVPN_CFG_PATH }}/server.key",
+      }
+    - {
+        src: "{{ OPENVPN_DIR_PATH }}/pki/issued/client1.domain.tld.crt",
+        dest: "{{ OPENVPN_CFG_PATH }}/client1.domain.tld.crt",
+      }
+    - {
+        src: "{{ OPENVPN_DIR_PATH }}/pki/private/client1.domain.tld.key",
+        dest: "{{ OPENVPN_CFG_PATH }}/client1.domain.tld.key",
+      }
+
+- name: Generate dh.pem
+  ansible.builtin.command:
+    cmd: openssl dhparam -out "{{ OPENVPN_CFG_PATH }}/dh.pem" 2048
+
+- name: Enable IP forwarding
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    state: present
+    reload: yes
+
+- name: Enable and start nftables
+  ansible.builtin.systemd:
+    name: nftables
+    state: started
+    enabled: true
+
+- name: Create NAT table if not exists
+  ansible.builtin.command:
+    cmd: nft add table ip nat
+  ignore_errors: true
+
+- name: Create postrouting chain if not exists
+  ansible.builtin.command:
+    cmd: nft add chain ip nat postrouting { type nat hook postrouting priority 100 \; }
+  ignore_errors: true
+
+- name: Add NAT masquerade rule
+  ansible.builtin.command:
+    cmd: nft add rule ip nat postrouting ip saddr 10.0.5.0/24 oif {{ ansible_default_ipv4.interface }} masquerade
+  ignore_errors: true
+
+- name: Enable and start OpenVPN server
+  ansible.builtin.systemd:
+    name: openvpn-server@server
+    state: started
+    enabled: true
+
+- name: Fetch OpenVPN certificates and keys
+  ansible.builtin.fetch:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    flat: yes
+  loop:
+    - {
+        src: "{{ OPENVPN_CFG_PATH }}/ca.crt",
+        dest: "{{ DIRECTORY }}/IAM/openvpn/{{ DEPARTMENT }}/configuration/ca.crt",
+      }
+    - {
+        src: "{{ OPENVPN_DIR_PATH }}/pki/issued/client1.domain.tld.crt",
+        dest: "{{ DIRECTORY }}/IAM/openvpn/{{ DEPARTMENT }}/configuration/client1.domain.tld.crt",
+      }
+    - {
+        src: "{{ OPENVPN_DIR_PATH }}/pki/private/client1.domain.tld.key",
+        dest: "{{ DIRECTORY }}/IAM/openvpn/{{ DEPARTMENT }}/configuration/client1.domain.tld.key",
+      }

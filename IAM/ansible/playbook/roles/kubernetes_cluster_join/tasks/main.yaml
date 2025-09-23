@@ -1,0 +1,26 @@
+- name: Template join config
+  ansible.builtin.template:
+    src: "{{ DIRECTORY }}/IAM/kubernetes/env/{{ DEPARTMENT }}/templates/join_node.yaml.j2"
+    dest: "{{ DIRECTORY}}/IAM/kubernetes/env/{{ DEPARTMENT }}/templates/join_node-{{ item }}.yaml"
+  loop: "{{ groups['worker'] + (groups['controlplane'][1:] if groups['controlplane'] | length > 1 else []) }}"
+  vars:
+    node_name: "{{ item }}"
+    node_ip: "{{ hostvars[item]['aws_private_ip'] }}"
+  delegate_to: localhost
+  become: false
+
+- name: Create temporary kubernetes directory
+  ansible.builtin.file:
+    path: /tmp/kubernetes
+    state: directory
+  register: KUBERNETES_TEMP_DIR
+
+- name: Copy join command
+  ansible.builtin.copy:
+    src: "{{ DIRECTORY }}/IAM/kubernetes/env/{{ DEPARTMENT }}/templates/join_node-{{ inventory_hostname }}.yaml"
+    dest: "{{ KUBERNETES_TEMP_DIR.path }}/join_node.yaml"
+  register: KUBERNETES_JOIN_FILE
+
+- name: Join nodes
+  ansible.builtin.command:
+    cmd: kubeadm join --config {{ KUBERNETES_JOIN_FILE.dest }}

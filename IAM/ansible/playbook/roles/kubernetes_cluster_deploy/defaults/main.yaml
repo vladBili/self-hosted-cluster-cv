@@ -1,0 +1,2 @@
+CP_COUNT: "{{ groups['controlplane'] | length }}"
+HA_ENABLED: "{{ 'true' if DEPARTMENT == 'production' else 'false' }}"
