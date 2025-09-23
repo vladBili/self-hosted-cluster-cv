@@ -34,3 +34,7 @@ variable "tf_state_bucket_versioning" {
   type    = bool
   default = true
 }
+
+variable "department" {
+  type = string
+}

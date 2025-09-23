@@ -14,7 +14,7 @@
       when: DEPARTMENT  == "production"
 
 - name: Bake AMI
-  hosts: "{{ 'all' if (PACKER | default('false') | bool) else 'worker:controlplane' }}"
+  hosts: "{{ 'default' if (PACKER | default('false') | bool) else 'worker:controlplane' }}"
   become: true
   gather_facts: true
   roles:

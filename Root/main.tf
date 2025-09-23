@@ -11,9 +11,11 @@ provider "aws" {
 data "aws_caller_identity" "current_account" {}
 
 locals {
-  departments = toset(values(var.iam_user_department_map))
-  users       = toset(keys(var.iam_user_department_map))
-  account_id  = data.aws_caller_identity.current_account.account_id
+  departments    = toset(values(var.iam_user_department_map))
+  users          = toset(keys(var.iam_user_department_map))
+  account_id     = data.aws_caller_identity.current_account.account_id
+  is_development = var.department == "development"
+  count          = local.is_development ? 0 : 1
 }
 
 module "S3" {
@@ -49,6 +51,11 @@ module "IAM" {
       "state_bucket" = module.S3.s3_state_bucket_arn
     }
   }
+}
+
+module "VPC" {
+  count  = local.count
+  source = "./modules/VPC"
 }
 
 

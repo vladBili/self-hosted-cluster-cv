@@ -68,7 +68,6 @@
   become: true
 
 - name: Reboot the instance to fully apply MACAddressPolicy change
-  when: not PACKER | bool
   ansible.builtin.reboot:
     msg: "Rebooting to apply systemd network link policy change"
     connect_timeout: 10
@@ -325,14 +324,7 @@
         mode: "0755"
         remote_src: yes
 
-    - name: Template credential provider config
-      ansible.builtin.template:
-        src: "{{ DIRECTORY }}/IAM/kubernetes/env/{{ DEPARTMENT }}/kubelet/credential_provider_conf.yaml.j2"
-        dest: "{{ DIRECTORY }}/IAM/kubernetes/env/{{ DEPARTMENT }}/kubelet/credential_provider_conf.yaml"
-      delegate_to: localhost
-      become: false
-
     - name: Copy credential provider config template to all nodes
       ansible.builtin.copy:
-        src: "{{ DIRECTORY }}/IAM/kubernetes/env/{{ DEPARTMENT  }}/kubelet/credential_provider_conf.yaml"
+        src: "{{ DIRECTORY }}/IAM/terraform/modules/Templates/env/{{DEPARTMENT}}/kubernetes_credential_provider_conf.tftpl"
         dest: "/etc/kubernetes/credential-provider-config.yaml"
