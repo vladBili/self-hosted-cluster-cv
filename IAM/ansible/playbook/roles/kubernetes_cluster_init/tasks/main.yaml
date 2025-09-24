@@ -50,3 +50,41 @@
         join_token: "{{ (KUBEADM_JOIN_COMMAND.stdout | regex_search('--token\\s+([a-z0-9]+\\.[a-z0-9]+)', '\\1'))[0] }}"
         join_sha256: "{{ (KUBEADM_JOIN_COMMAND.stdout | regex_search('--discovery-token-ca-cert-hash\\s+sha256:([a-f0-9]+)', '\\1'))[0] }}"
         cert_key: "{{ (KUBEADM_INIT_OUTPUT.stdout | regex_findall('--certificate-key\\s+([a-f0-9]+)'))[0] }}"
+
+    - name: Push kubeadm facts to SSM
+      ansible.builtin.shell: |
+        aws ssm put-parameter \
+          --name "{{ item.key }}" \
+          --value "{{ item.value }}" \
+          --type String \
+          --overwrite
+      loop:
+        - {
+            key: "/kubernetes/{{ DEPARTMENT }}/join_token",
+            value: "{{ join_token }}",
+          }
+        - {
+            key: "/kubernetes/{{ DEPARTMENT }}/join_sha256",
+            value: "{{ join_sha256 }}",
+          }
+      environment:
+        AWS_PROFILE: "{{ DEPARTMENT }}-user"
+
+    - name: Kubeadm join block
+      when: DEPARTMENT == "production"
+      block:
+        - name: Create kubeadm-join.sh
+          ansible.builtin.template:
+            src: "{{ DIRECTORY }}/IAM/terraform/modules/Templates/env/{{ DEPARTMENT }}/kubeadm-join.sh.j2"
+            dest: "{{ DIRECTORY }}/IAM/terraform/modules/ASG/kubernetes-workers/kubeadm-join.sh"
+          delegate_to: localhost
+
+        - name: Copy kubeadm-join.sh
+          ansible.builtin.copy:
+            src: "{{ DIRECTORY }}/IAM/terraform/modules/ASG/kubernetes-workers/kubeadm-join.sh"
+            dest: /usr/local/bin/kubeadm-join.sh
+
+        - name: Copy kubeadm-join.service
+          ansible.builtin.copy:
+            src: "{{ DIRECTORY }}/IAM/terraform/modules/ASG/kubernetes-workers/kubeadm-join.service"
+            dest: /etc/systemd/system/kubeadm-join.service

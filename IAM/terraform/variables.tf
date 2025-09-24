@@ -40,7 +40,8 @@ variable "pwd" {
 }
 
 variable "build_phase" {
-  type = string
+  type    = string
+  default = " "
 }
 
 variable "oidc_thumbprint" {

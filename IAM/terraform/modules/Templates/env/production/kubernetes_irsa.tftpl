@@ -3,4 +3,6 @@ mapping:
   - sa_name: ${sa_name}
     sa_namespace: ${sa_values.namespace}
     sa_role_arn: ${irsa_role[sa_name].arn}
+    sa_kind_type: ${sa_values.kind_type}
+    sa_kind_name: ${sa_values.kind_name}
 %{ endfor }

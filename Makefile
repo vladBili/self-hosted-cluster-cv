@@ -9,7 +9,7 @@ DOMAIN_NAME = vladbilii.click
 
 KUBERNETES_CREDENTIAL_PROVIDER = true
 
-PACKER := $(if $(filter $(DEPARTMENT),development),false,true)
+PACKER = true
 OIDC := $(if $(filter $(DEPARTMENT),development),false,true)
 
 all: ansible-playbook-final
@@ -31,6 +31,10 @@ packer-root-provision-ami: terraform-root-provision-backend
 		-var "subnet_id=$$(cd ../../ && terraform output -json packer_vpc | jq -r '.subnet_id')" \
 		-var "region=$(AWS_REGION)" \
 		-var "profile=$(AWS_ROOT_PROFILE)" \
+		-var "department"=$(DEPARTMENT)" \
+		-var "pwd"=$(DIRECTORY) \
+		-var "credential_provider"=${KUBERNETES_CREDENTIAL_PROVIDER} \
+		-var "domain_name"=${DOMAIN_NAME}
 	template.pkr.hcl
 
 aws-root-fetch-iam-credentials: packer-root-provision-ami
@@ -86,8 +90,7 @@ ansible-playbook-init: ansible-playbook-preinit
 	-e DEPARTMENT=${DEPARTMENT} \
 	-e DIRECTORY=${DIRECTORY} \
 	-e REGION=${AWS_REGION} \
-	-e CREDENTIAL_PROVIDER=${KUBERNETES_CREDENTIAL_PROVIDER} \
-	-e PACKER=${PACKER}
+	-e CREDENTIAL_PROVIDER=${KUBERNETES_CREDENTIAL_PROVIDER}
 
 ansible-playbook-postinit: ansible-playbook-init
 	export ANSIBLE_CONFIG="${DIRECTORY}/IAM/ansible/env/${DEPARTMENT}/ansible.cfg" && \
