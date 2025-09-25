@@ -38,3 +38,7 @@ variable "tf_state_bucket_versioning" {
 variable "department" {
   type = string
 }
+
+variable "packer_ami_build" {
+  type = bool
+}

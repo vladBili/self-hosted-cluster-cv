@@ -18,6 +18,17 @@
 - name: Cluster setup block
   when: not KUBEADM_CONFIG.stat.exists
   block:
+    - name: Check apiserver DNS resolution
+      when: DEPARTMENT == "production"
+      ansible.builtin.getent:
+        database: hosts
+        key: "k8s.{{ DOMAIN_NAME }}"
+      register: dns_check
+      until: dns_check is succeeded
+      retries: 60
+      delay: 25
+      ignore_errors: no
+
     - name: Initialize cluster
       ansible.builtin.command:
         cmd: kubeadm init --upload-certs --config {{ KUBERNETES_INIT_FILE.dest }}
@@ -45,19 +56,33 @@
         dest: "{{ DIRECTORY }}/IAM/kubernetes/env/{{ DEPARTMENT }}/config/admin.conf"
         flat: yes
 
-    - name: Set join command on all hosts
+    - name: Save join command
       ansible.builtin.set_fact:
         join_token: "{{ (KUBEADM_JOIN_COMMAND.stdout | regex_search('--token\\s+([a-z0-9]+\\.[a-z0-9]+)', '\\1'))[0] }}"
         join_sha256: "{{ (KUBEADM_JOIN_COMMAND.stdout | regex_search('--discovery-token-ca-cert-hash\\s+sha256:([a-f0-9]+)', '\\1'))[0] }}"
         cert_key: "{{ (KUBEADM_INIT_OUTPUT.stdout | regex_findall('--certificate-key\\s+([a-f0-9]+)'))[0] }}"
+      run_once: true
+      delegate_to: localhost
+
+    - name: Save join command vars into localhost
+      ansible.builtin.add_host:
+        name: localhost
+        join_token: "{{ join_token }}"
+        join_sha256: "{{ join_sha256 }}"
+        cert_key: "{{ cert_key }}"
+      run_once: true
+      delegate_to: localhost
 
     - name: Push kubeadm facts to SSM
+      when: DEPARTMENT == "production"
       ansible.builtin.shell: |
         aws ssm put-parameter \
           --name "{{ item.key }}" \
           --value "{{ item.value }}" \
           --type String \
           --overwrite
+      delegate_to: localhost
+      become: false
       loop:
         - {
             key: "/kubernetes/{{ DEPARTMENT }}/join_token",
@@ -69,22 +94,3 @@
           }
       environment:
         AWS_PROFILE: "{{ DEPARTMENT }}-user"
-
-    - name: Kubeadm join block
-      when: DEPARTMENT == "production"
-      block:
-        - name: Create kubeadm-join.sh
-          ansible.builtin.template:
-            src: "{{ DIRECTORY }}/IAM/terraform/modules/Templates/env/{{ DEPARTMENT }}/kubeadm-join.sh.j2"
-            dest: "{{ DIRECTORY }}/IAM/terraform/modules/ASG/kubernetes-workers/kubeadm-join.sh"
-          delegate_to: localhost
-
-        - name: Copy kubeadm-join.sh
-          ansible.builtin.copy:
-            src: "{{ DIRECTORY }}/IAM/terraform/modules/ASG/kubernetes-workers/kubeadm-join.sh"
-            dest: /usr/local/bin/kubeadm-join.sh
-
-        - name: Copy kubeadm-join.service
-          ansible.builtin.copy:
-            src: "{{ DIRECTORY }}/IAM/terraform/modules/ASG/kubernetes-workers/kubeadm-join.service"
-            dest: /etc/systemd/system/kubeadm-join.service

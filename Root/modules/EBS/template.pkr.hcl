@@ -66,7 +66,7 @@ build {
       playbook_file = "../../../IAM/ansible/playbook/02-playbook-init.yaml"
       extra_arguments = [
         "--tags", "packer",
-        "--extra-vars", "DEPARTMENT=${var.department} DIRECTORY=${var.pwd} REGION=${var.region} CREDENTIAL_PROVIDER=${var.credential_provider} DOMAIN_NAME=${var.domain_name}"
+        "--extra-vars", "DEPARTMENT=${var.department} DIRECTORY=${var.pwd} REGION=${var.region} CREDENTIAL_PROVIDER=${var.credential_provider} DOMAIN_NAME=${var.domain_name} PACKER_AMI_BUILD=true"
       ]
 
     }

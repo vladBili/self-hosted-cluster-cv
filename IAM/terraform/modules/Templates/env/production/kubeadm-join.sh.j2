@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # Fetch join params
-JOIN_TOKEN=$(aws ssm get-parameter --name "/kubernetes/{{ DEPARTMENT }}/join_token" --with-decryption --query "Parameter.Value" --output text --region {{ REGION }})
-JOIN_SHA256=$(aws ssm get-parameter --name "/kubernetes/{ DEPARTMENT }}/join_sha256" --with-decryption --query "Parameter.Value" --output text --region {{ REGION }})
-API_SERVER="https://k8s.{{ DOMAIN_NAME }}:6443"
+JOIN_TOKEN=$(sudo aws ssm get-parameter --name "/kubernetes/{{ DEPARTMENT }}/join_token" --with-decryption --query "Parameter.Value" --output text --region {{ REGION }})
+JOIN_SHA256=$(sudo aws ssm get-parameter --name "/kubernetes/{{ DEPARTMENT }}/join_sha256" --with-decryption --query "Parameter.Value" --output text --region {{ REGION }})
+API_SERVER="k8s.{{ DOMAIN_NAME }}:6443"
 
 # Check if already joined (kubelet running with kubeconfig)
 if systemctl is-active --quiet kubelet && [ -f /etc/kubernetes/kubelet.conf ]; then
@@ -12,8 +12,26 @@ if systemctl is-active --quiet kubelet && [ -f /etc/kubernetes/kubelet.conf ]; t
   exit 0
 fi
 
+# Template join configuration
+sudo cat > /tmp/kubeadm-join.yaml <<EOF
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: JoinConfiguration
+discovery:
+  bootstrapToken:
+    apiServerEndpoint: "$API_SERVER"
+    token: "$JOIN_TOKEN"
+    caCertHashes:
+      - "sha256:$JOIN_SHA256"
+nodeRegistration:
+  kubeletExtraArgs:
+    - name: cloud-provider 
+      value: external
+    - name: image-credential-provider-bin-dir
+      value: /usr/local/bin
+    - name: image-credential-provider-config
+      value: /etc/kubernetes/credential-provider-config.yaml
+EOF
+
 # Run join
 echo "[$(date)] Running kubeadm join..."
-kubeadm join "$API_SERVER" \
-  --token "$JOIN_TOKEN" \
-  --discovery-token-ca-cert-hash sha256:"$JOIN_SHA256"
+sudo kubeadm join --config /tmp/kubeadm-join.yaml

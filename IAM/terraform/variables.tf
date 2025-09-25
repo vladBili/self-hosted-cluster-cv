@@ -48,3 +48,7 @@ variable "oidc_thumbprint" {
   type    = string
   default = " "
 }
+
+variable "packer_ami_use" {
+  type = bool
+}

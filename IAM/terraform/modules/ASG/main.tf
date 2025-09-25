@@ -3,7 +3,7 @@ data "aws_ami" "packer_ami" {
 
   filter {
     name   = "name"
-    values = ["${var.asg_dict[each.key].ami_name}"]
+    values = ["${var.asg_dict["kubernetes_workers"].ami_name}"]
   }
 
   owners = ["self"]
@@ -15,7 +15,7 @@ resource "aws_launch_template" "asg_template" {
   image_id      = data.aws_ami.packer_ami.id
   instance_type = var.asg_dict[each.key].instance_type
   key_name      = var.asg_dict[each.key].key_name
-  user_data     = base64encode(file("${path.module}/kubernetes-workers/user_data.sh"))
+  user_data     = base64encode(file("${path.module}/kubernetes-workers/user-data.sh"))
 
   iam_instance_profile {
     name = var.asg_dict[each.key].instance_profile
@@ -50,10 +50,10 @@ resource "aws_autoscaling_group" "asg_group" {
   desired_capacity    = 2
   max_size            = 4
   min_size            = 1
-  vpc_zone_identifier = [keys(var.asg_dict[each.key].subnets)]
+  vpc_zone_identifier = keys(var.asg_dict[each.key].subnets)
 
   launch_template {
-    id      = aws_launch_template.asg_template.id
+    id      = aws_launch_template.asg_template[each.key].id
     version = "$Latest"
   }
 

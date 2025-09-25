@@ -1,3 +1,3 @@
 output "packer_vpc" {
-  value = try(module.VPC.packer_vpc, null)
+  value = try(module.VPC[0].packer_vpc, null)
 }

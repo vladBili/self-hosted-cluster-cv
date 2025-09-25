@@ -89,6 +89,9 @@ module "CloudWatch" {
 module "EC2" {
   source = "./modules/EC2"
 
+  #Packer
+  packer_ami_use = var.packer_ami_use
+
   # Instance configuration
   haproxy_instance_count = var.haproxy_instance_count
   haproxy_instance_type  = var.haproxy_instance_type

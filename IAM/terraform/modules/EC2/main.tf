@@ -115,7 +115,7 @@ resource "aws_instance" "main_haproxy_nodes" {
 resource "aws_instance" "main_controlplane_nodes" {
   count         = var.controlplane_instance_count
   instance_type = var.controlplane_instance_type
-  ami           = terraform.workspace == "production" ? data.aws_ami.packer_ami.id : data.aws_ami.main_ami.id
+  ami           = var.packer_ami_use ? data.aws_ami.packer_ami.id : data.aws_ami.main_ami.id
   key_name      = aws_key_pair.main_aws_key_pair.key_name
 
   subnet_id              = keys(var.networking.vpc_subnet_map["private"])[count.index % local.private_subnet_length]
@@ -142,7 +142,7 @@ resource "aws_instance" "main_controlplane_nodes" {
 resource "aws_instance" "main_worker_nodes" {
   count         = var.worker_instance_count
   instance_type = var.worker_instance_type
-  ami           = data.aws_ami.main_ami.id
+  ami           = var.packer_ami_use ? data.aws_ami.packer_ami.id : data.aws_ami.main_ami.id
   key_name      = aws_key_pair.main_aws_key_pair.key_name
 
   subnet_id              = keys(var.networking.vpc_subnet_map["private"])[count.index % local.private_subnet_length]

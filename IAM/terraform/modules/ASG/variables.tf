@@ -4,5 +4,5 @@ variable "ami_name" {
 }
 
 variable "asg_dict" {
-  type = map(map(any))
+  type = map(any)
 }
