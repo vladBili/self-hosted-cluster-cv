@@ -106,9 +106,26 @@ data "aws_iam_policy_document" "iam_permission_boundaries_document" {
       "lambda:AddPermission",
       "lambda:RemovePermission",
       "elasticloadbalancing:*",
-      "ssm:GetParameter"
+      "ssm:GetParameter",
+      "autoscaling:Describe*"
     ]
     resources = ["*"]
+  }
+  # Autoscaling groups (ASG)
+  statement {
+    sid    = "AllowASGResourceStatements"
+    effect = "Allow"
+    actions = [
+      "autoscaling:CreateAutoScalingGroup",
+      "autoscaling:UpdateAutoScalingGroup",
+      "autoscaling:DeleteAutoScalingGroup"
+    ]
+    resources = ["*"]
+    condition {
+      test     = "StringEqualsIfExists"
+      variable = "aws:ResourceTag/department"
+      values   = ["$${aws:PrincipalTag/department}"]
+    }
   }
 
   # AWS System Manager (SSM)
@@ -289,7 +306,9 @@ data "aws_iam_policy_document" "iam_permission_boundaries_document" {
       "ec2:Modify*",
       "ec2:Attach*",
       "ec2:Detach*",
-      "ec2:Stop*"
+      "ec2:Stop*",
+      "ec2:CreateLaunchTemplate",
+      "ec2:DeleteLaunchTemplate"
     ]
     resources = [
       "arn:aws:ec2:${var.region}:${var.account_id}:vpc/*",
@@ -304,7 +323,8 @@ data "aws_iam_policy_document" "iam_permission_boundaries_document" {
       "arn:aws:ec2:${var.region}:${var.account_id}:internet-gateway/*",
       "arn:aws:ec2:${var.region}:${var.account_id}:instance/*",
       "arn:aws:ec2:${var.region}:${var.account_id}:elastic-ip/*",
-      "arn:aws:ec2:${var.region}:${var.account_id}:volume/*"
+      "arn:aws:ec2:${var.region}:${var.account_id}:volume/*",
+      "arn:aws:ec2:${var.region}:${var.account_id}:launch-template/*"
     ]
     condition {
       test     = "StringEqualsIfExists"
@@ -494,7 +514,13 @@ data "aws_iam_policy_document" "iam_policy_documents" {
       "ec2:StopInstances",
       "ec2:Modify*",
       "ec2:StartInstances",
-      "ec2:ReplaceIamInstanceProfileAssociation"
+      "ec2:ReplaceIamInstanceProfileAssociation",
+      "ec2:CreateLaunchTemplate",
+      "ec2:DeleteLaunchTemplate",
+      "autoscaling:CreateAutoScalingGroup",
+      "autoscaling:Describe*",
+      "autoscaling:UpdateAutoScalingGroup",
+      "autoscaling:DeleteAutoScalingGroup"
     ]
     resources = ["*"]
   }

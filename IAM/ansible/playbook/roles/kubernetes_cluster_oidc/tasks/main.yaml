@@ -29,6 +29,7 @@
           eks.amazonaws.com/role-arn={{ item.sa_role_arn }} --overwrite
       loop: "{{ IRSA.mapping }}"
 
-    - name: Restart test deployment
+    - name: Restart test deployment/daemonset
       ansible.builtin.command:
-        cmd: kubectl rollout restart deployment/irsa-test-deployment -n default
+        cmd: kubectl rollout restart {{item.sa_kind_type}}/{{item.sa_kind_name}} -n {{item.sa_namespace}}
+      loop: "{{ IRSA.mapping }}"

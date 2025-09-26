@@ -328,3 +328,21 @@
       ansible.builtin.copy:
         src: "{{ DIRECTORY }}/IAM/terraform/modules/Templates/env/{{DEPARTMENT}}/kubernetes_credential_provider_conf.tftpl"
         dest: "/etc/kubernetes/credential-provider-config.yaml"
+
+- name: Create kubeadm-join.sh
+  ansible.builtin.template:
+    src: "{{ DIRECTORY }}/IAM/terraform/modules/Templates/env/{{ DEPARTMENT }}/kubeadm-join.sh.j2"
+    dest: "{{ DIRECTORY }}/IAM/terraform/modules/ASG/kubernetes-workers/kubeadm-join.sh"
+  delegate_to: localhost
+  become: false
+
+- name: Copy kubeadm-join.sh
+  ansible.builtin.copy:
+    src: "{{ DIRECTORY }}/IAM/terraform/modules/ASG/kubernetes-workers/kubeadm-join.sh"
+    dest: /usr/local/bin/kubeadm-join.sh
+    mode: "0755"
+
+- name: Copy kubeadm-join.service
+  ansible.builtin.copy:
+    src: "{{ DIRECTORY }}/IAM/terraform/modules/ASG/kubernetes-workers/kubeadm-join.service"
+    dest: /etc/systemd/system/kubeadm-join.service

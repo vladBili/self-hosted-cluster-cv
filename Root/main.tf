@@ -54,7 +54,7 @@ module "IAM" {
 }
 
 module "VPC" {
-  count  = local.count
+  count  = var.packer_ami_build ? 1 : 0
   source = "./modules/VPC"
 }
 

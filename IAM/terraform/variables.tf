@@ -40,10 +40,15 @@ variable "pwd" {
 }
 
 variable "build_phase" {
-  type = string
+  type    = string
+  default = " "
 }
 
 variable "oidc_thumbprint" {
   type    = string
   default = " "
+}
+
+variable "packer_ami_use" {
+  type = bool
 }

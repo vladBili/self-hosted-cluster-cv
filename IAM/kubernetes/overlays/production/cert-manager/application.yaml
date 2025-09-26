@@ -6,11 +6,11 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  project: development
+  project: production
   source:
     repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
     targetRevision: main
-    path: IAM/kubernetes/base/cert-manager/kustomize
+    path: IAM/kubernetes/overlays/production/cert-manager/kustomize
   destination:
     server: https://kubernetes.default.svc
     namespace: cert-manager

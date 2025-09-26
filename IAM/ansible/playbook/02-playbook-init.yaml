@@ -14,7 +14,12 @@
       when: DEPARTMENT  == "production"
 
 - name: Bake AMI
-  hosts: "{{ 'default' if (PACKER | default('false') | bool) else 'worker:controlplane' }}"
+  hosts: >-
+    {{
+      'default' if (PACKER_AMI_BUILD is defined and (PACKER_AMI_BUILD | bool)) else 
+      'none'if (PACKER_AMI_USE is defined and (PACKER_AMI_USE | bool)) else
+      'worker:controlplane'
+    }}
   become: true
   gather_facts: true
   roles:
@@ -22,14 +27,22 @@
   tags: [packer]
 
 - name: Init primary controlplane node
-  hosts: "{{ groups['controlplane'][0] }}"
+  hosts: >-
+    {{
+      'none'if (PACKER_AMI_BUILD is defined and (PACKER_AMI_BUILD | bool)) else
+      groups['controlplane'][0]
+    }}
   become: true
   gather_facts: true
   roles:
     - role: kubernetes_cluster_init
 
 - name: Join other nodes
-  hosts: "{{ groups['controlplane'][1:] + groups['worker']}}"
+  hosts: >-
+    {{
+      'none'if (PACKER_AMI_BUILD is defined and (PACKER_AMI_BUILD | bool)) else
+      groups['controlplane'][1:] + groups['worker']
+    }}
   become: true
   gather_facts: true
   roles:

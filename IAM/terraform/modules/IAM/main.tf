@@ -1,31 +1,34 @@
 locals {
   instance_profile_enabled = terraform.workspace == "development" || var.oidc["oidc"].cluster_phase != "postinit" ? 1 : 0
   instance_profile_dict = {
-    "aws_full_access"         = data.aws_iam_policy_document.iam_full_access_role_document.json
-    "aws_controlplane_access" = data.aws_iam_policy_document.iam_controlplane_role_document.json
-    "aws_worker_access"       = data.aws_iam_policy_document.iam_worker_role_document.json
+    "aws_full_access" = data.aws_iam_policy_document.iam_full_access_role_document.json
+    "aws_irsa_access" = data.aws_iam_policy_document.iam_irsa_role_document.json
   }
   irsa_enabled = var.enabled && var.oidc["oidc"].cluster_phase == "postinit"
   irsa_dict = {
+    "cloud-controller-manager" = {
+      policy_document = try(data.aws_iam_policy_document.iam_irsa_ccm_role_document.json, "")
+      namespace       = "kube-system"
+      kind_type       = "daemonset"
+      kind_name       = "aws-cloud-controller-manager"
+    },
     "aws-node" = {
       policy_document = try(data.aws_iam_policy_document.iam_irsa_aws_vpc_cni_role_document.json, "")
       namespace       = "kube-system"
-    },
-    "aws-secret-csi" = {
-      policy_document = try(data.aws_iam_policy_document.iam_irsa_aws_csi_secret_role_document.json, "")
-      namespace       = "kube-system"
+      kind_type       = "daemonset"
+      kind_name       = "aws-node"
     },
     "external-dns-public" = {
       policy_document = try(data.aws_iam_policy_document.iam_irsa_external_dns_role_document.json, "")
       namespace       = "kube-system"
+      kind_type       = "deployment"
+      kind_name       = "external-dns-public"
     },
     "external-dns-private" = {
       policy_document = try(data.aws_iam_policy_document.iam_irsa_external_dns_role_document.json, "")
       namespace       = "kube-system"
-    },
-    "test-sa" = {
-      policy_document = try(data.aws_iam_policy_document.iam_irsa_test_role_document.json, "")
-      namespace       = "default"
+      kind_type       = "deployment"
+      kind_name       = "external-dns-private"
     }
   }
 
@@ -33,6 +36,80 @@ locals {
 
 data "aws_region" "main_region" {}
 data "aws_caller_identity" "main_account" {}
+
+# IRSA roles
+data "aws_iam_policy_document" "iam_irsa_ccm_role_document" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "autoscaling:DescribeAutoScalingGroups",
+      "autoscaling:DescribeLaunchConfigurations",
+      "autoscaling:DescribeTags",
+      "ec2:DescribeInstances",
+      "ec2:DescribeRegions",
+      "ec2:DescribeRouteTables",
+      "ec2:DescribeSecurityGroups",
+      "ec2:DescribeSubnets",
+      "ec2:DescribeVolumes",
+      "ec2:DescribeAvailabilityZones",
+      "ec2:CreateSecurityGroup",
+      "ec2:CreateTags",
+      "ec2:CreateVolume",
+      "ec2:ModifyInstanceAttribute",
+      "ec2:ModifyVolume",
+      "ec2:AttachVolume",
+      "ec2:AuthorizeSecurityGroupIngress",
+      "ec2:CreateRoute",
+      "ec2:DeleteRoute",
+      "ec2:DeleteSecurityGroup",
+      "ec2:DeleteVolume",
+      "ec2:DetachVolume",
+      "ec2:RevokeSecurityGroupIngress",
+      "ec2:DescribeVpcs",
+      "ec2:DescribeInstanceTopology",
+      "elasticloadbalancing:AddTags",
+      "elasticloadbalancing:AttachLoadBalancerToSubnets",
+      "elasticloadbalancing:ApplySecurityGroupsToLoadBalancer",
+      "elasticloadbalancing:CreateLoadBalancer",
+      "elasticloadbalancing:CreateLoadBalancerPolicy",
+      "elasticloadbalancing:CreateLoadBalancerListeners",
+      "elasticloadbalancing:ConfigureHealthCheck",
+      "elasticloadbalancing:DeleteLoadBalancer",
+      "elasticloadbalancing:DeleteLoadBalancerListeners",
+      "elasticloadbalancing:DescribeLoadBalancers",
+      "elasticloadbalancing:DescribeLoadBalancerAttributes",
+      "elasticloadbalancing:DetachLoadBalancerFromSubnets",
+      "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
+      "elasticloadbalancing:ModifyLoadBalancerAttributes",
+      "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
+      "elasticloadbalancing:SetLoadBalancerPoliciesForBackendServer",
+      "elasticloadbalancing:AddTags",
+      "elasticloadbalancing:CreateListener",
+      "elasticloadbalancing:CreateTargetGroup",
+      "elasticloadbalancing:DeleteListener",
+      "elasticloadbalancing:DeleteTargetGroup",
+      "elasticloadbalancing:DescribeListeners",
+      "elasticloadbalancing:DescribeLoadBalancerPolicies",
+      "elasticloadbalancing:DescribeTargetGroups",
+      "elasticloadbalancing:DescribeTargetHealth",
+      "elasticloadbalancing:ModifyListener",
+      "elasticloadbalancing:ModifyTargetGroup",
+      "elasticloadbalancing:RegisterTargets",
+      "elasticloadbalancing:DeregisterTargets",
+      "elasticloadbalancing:SetLoadBalancerPoliciesOfListener",
+      "iam:CreateServiceLinkedRole",
+      "kms:DescribeKey"
+    ]
+    resources = ["*"]
+  }
+  statement {
+    effect = "Allow"
+    actions = [
+      "ec2:CreateTags"
+    ]
+    resources = ["arn:aws:ec2:*:*:network-interface/*"]
+  }
+}
 
 data "aws_iam_policy_document" "iam_irsa_aws_vpc_cni_role_document" {
   statement {
@@ -76,19 +153,6 @@ data "aws_iam_policy_document" "iam_irsa_external_dns_role_document" {
       "route53:ListHostedZones",
       "route53:ListResourceRecordSets",
       "route53:ListTagsForResources"
-    ]
-    resources = ["*"]
-  }
-}
-
-data "aws_iam_policy_document" "iam_irsa_aws_csi_secret_role_document" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "ssm:GetParameter",
-      "ssm:GetParameters",
-      "ssm:GetParameterHistory",
-      "ssm:GetParametersByPath"
     ]
     resources = ["*"]
   }
@@ -155,79 +219,12 @@ data "aws_iam_policy_document" "iam_full_access_role_document" {
       "ec2:*",
       "route53:*",
       "ecr:*",
-      "ecr-public:*"
     ]
     resources = ["*"]
   }
 }
 
-data "aws_iam_policy_document" "iam_controlplane_role_document" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "autoscaling:DescribeAutoScalingGroups",
-      "autoscaling:DescribeLaunchConfigurations",
-      "autoscaling:DescribeTags",
-      "ec2:DescribeInstances",
-      "ec2:DescribeRegions",
-      "ec2:DescribeRouteTables",
-      "ec2:DescribeSecurityGroups",
-      "ec2:DescribeSubnets",
-      "ec2:DescribeVolumes",
-      "ec2:DescribeAvailabilityZones",
-      "ec2:CreateSecurityGroup",
-      "ec2:CreateTags",
-      "ec2:CreateVolume",
-      "ec2:ModifyInstanceAttribute",
-      "ec2:ModifyVolume",
-      "ec2:AttachVolume",
-      "ec2:AuthorizeSecurityGroupIngress",
-      "ec2:CreateRoute",
-      "ec2:DeleteRoute",
-      "ec2:DeleteSecurityGroup",
-      "ec2:DeleteVolume",
-      "ec2:DetachVolume",
-      "ec2:RevokeSecurityGroupIngress",
-      "ec2:DescribeVpcs",
-      "ec2:DescribeInstanceTopology",
-      "elasticloadbalancing:AddTags",
-      "elasticloadbalancing:AttachLoadBalancerToSubnets",
-      "elasticloadbalancing:ApplySecurityGroupsToLoadBalancer",
-      "elasticloadbalancing:CreateLoadBalancer",
-      "elasticloadbalancing:CreateLoadBalancerPolicy",
-      "elasticloadbalancing:CreateLoadBalancerListeners",
-      "elasticloadbalancing:ConfigureHealthCheck",
-      "elasticloadbalancing:DeleteLoadBalancer",
-      "elasticloadbalancing:DeleteLoadBalancerListeners",
-      "elasticloadbalancing:DescribeLoadBalancers",
-      "elasticloadbalancing:DescribeLoadBalancerAttributes",
-      "elasticloadbalancing:DetachLoadBalancerFromSubnets",
-      "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
-      "elasticloadbalancing:ModifyLoadBalancerAttributes",
-      "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
-      "elasticloadbalancing:SetLoadBalancerPoliciesForBackendServer",
-      "elasticloadbalancing:AddTags",
-      "elasticloadbalancing:CreateListener",
-      "elasticloadbalancing:CreateTargetGroup",
-      "elasticloadbalancing:DeleteListener",
-      "elasticloadbalancing:DeleteTargetGroup",
-      "elasticloadbalancing:DescribeListeners",
-      "elasticloadbalancing:DescribeLoadBalancerPolicies",
-      "elasticloadbalancing:DescribeTargetGroups",
-      "elasticloadbalancing:DescribeTargetHealth",
-      "elasticloadbalancing:ModifyListener",
-      "elasticloadbalancing:ModifyTargetGroup",
-      "elasticloadbalancing:RegisterTargets",
-      "elasticloadbalancing:DeregisterTargets",
-      "elasticloadbalancing:SetLoadBalancerPoliciesOfListener",
-      "iam:CreateServiceLinkedRole",
-      "kms:DescribeKey"
-    ]
-    resources = ["*"]
-  }
-}
-
-data "aws_iam_policy_document" "iam_worker_role_document" {
+data "aws_iam_policy_document" "iam_irsa_role_document" {
   statement {
     effect = "Allow"
     actions = [
@@ -242,6 +239,17 @@ data "aws_iam_policy_document" "iam_worker_role_document" {
       "ecr:BatchGetImage"
     ]
     resources = ["*"]
+  }
+  statement {
+    effect = "Allow"
+    actions = [
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+    ]
+    resources = [
+      "arn:aws:ssm:${data.aws_region.main_region.name}:${data.aws_caller_identity.main_account.account_id}:parameter/kubernetes/${terraform.workspace}/join_token",
+      "arn:aws:ssm:${data.aws_region.main_region.name}:${data.aws_caller_identity.main_account.account_id}:parameter/kubernetes/${terraform.workspace}/join_sha256"
+    ]
   }
 }
 

@@ -31,9 +31,7 @@ spec:
           args:
             - --v=2
             - --cloud-provider=aws
-            # Use the superset-role overlay if you don't want a token per controller
             - --use-service-account-credentials=true
-            # Set --configure-cloud-routes=true if required by your CNI
             - --configure-cloud-routes=false
           resources:
             requests:

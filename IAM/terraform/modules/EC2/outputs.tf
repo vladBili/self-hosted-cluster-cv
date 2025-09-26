@@ -37,3 +37,6 @@ output "ec2_instances" {
   }
 }
 
+output "ec2_key_name" {
+  value = aws_key_pair.main_aws_key_pair.key_name
+}

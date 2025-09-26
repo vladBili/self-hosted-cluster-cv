@@ -27,6 +27,25 @@ variable "profile" {
   type    = string
 }
 
+variable "department" {
+  type = string
+  default = "production"
+}
+
+variable "pwd" {
+  type = string
+  default = "production"
+}
+
+variable "credential_provider" {
+  type = string
+  default = "true"
+}
+
+variable "domain_name" {
+  type = string
+}
+
 source "amazon-ebs" "ami_type" {
   profile       = "root"
   vpc_id        = var.vpc_id
@@ -47,7 +66,7 @@ build {
       playbook_file = "../../../IAM/ansible/playbook/02-playbook-init.yaml"
       extra_arguments = [
         "--tags", "packer",
-        "--extra-vars", "DEPARTMENT=production DIRECTORY=/Users/dianalumina/Desktop/CV REGION=eu-central-1 CREDENTIAL_PROVIDER=true PACKER=true"
+        "--extra-vars", "DEPARTMENT=${var.department} DIRECTORY=${var.pwd} REGION=${var.region} CREDENTIAL_PROVIDER=${var.credential_provider} DOMAIN_NAME=${var.domain_name} PACKER_AMI_BUILD=true"
       ]
 
     }

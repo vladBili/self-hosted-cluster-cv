@@ -27,6 +27,17 @@ data "aws_ami" "main_ami" {
   owners = ["137112412989"]
 }
 
+data "aws_ami" "packer_ami" {
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["aws-linux-production-cv-project-vlad-bilii"]
+  }
+
+  owners = ["self"]
+}
+
 # Key pair
 resource "tls_private_key" "main_tls_key_pair" {
   algorithm = "RSA"
@@ -104,13 +115,13 @@ resource "aws_instance" "main_haproxy_nodes" {
 resource "aws_instance" "main_controlplane_nodes" {
   count         = var.controlplane_instance_count
   instance_type = var.controlplane_instance_type
-  ami           = data.aws_ami.main_ami.id
+  ami           = var.packer_ami_use ? data.aws_ami.packer_ami.id : data.aws_ami.main_ami.id
   key_name      = aws_key_pair.main_aws_key_pair.key_name
 
   subnet_id              = keys(var.networking.vpc_subnet_map["private"])[count.index % local.private_subnet_length]
   vpc_security_group_ids = [var.networking.vpc_security_groups["controlplane"]]
 
-  iam_instance_profile = terraform.workspace == "development" || var.cluster_phase != "postinit" ? var.management.iam_instance_profile["aws_full_access"] : var.management.iam_instance_profile["aws_controlplane_access"]
+  iam_instance_profile = terraform.workspace == "development" || var.cluster_phase != "postinit" ? var.management.iam_instance_profile["aws_full_access"] : var.management.iam_instance_profile["aws_irsa_access"]
 
   tags = {
     Name                                                   = "controlplane-${count.index}"
@@ -129,16 +140,15 @@ resource "aws_instance" "main_controlplane_nodes" {
 }
 
 resource "aws_instance" "main_worker_nodes" {
-  count             = var.worker_instance_count
-  instance_type     = var.worker_instance_type
-  ami               = data.aws_ami.main_ami.id
-  key_name          = aws_key_pair.main_aws_key_pair.key_name
-  source_dest_check = false
+  count         = var.worker_instance_count
+  instance_type = var.worker_instance_type
+  ami           = var.packer_ami_use ? data.aws_ami.packer_ami.id : data.aws_ami.main_ami.id
+  key_name      = aws_key_pair.main_aws_key_pair.key_name
 
   subnet_id              = keys(var.networking.vpc_subnet_map["private"])[count.index % local.private_subnet_length]
   vpc_security_group_ids = [var.networking.vpc_security_groups["worker"]]
 
-  iam_instance_profile = terraform.workspace == "development" || var.cluster_phase != "postinit" ? var.management.iam_instance_profile["aws_full_access"] : var.management.iam_instance_profile["aws_worker_access"]
+  iam_instance_profile = terraform.workspace == "development" || var.cluster_phase != "postinit" ? var.management.iam_instance_profile["aws_full_access"] : var.management.iam_instance_profile["aws_irsa_access"]
 
 
   tags = {

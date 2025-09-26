@@ -89,6 +89,9 @@ module "CloudWatch" {
 module "EC2" {
   source = "./modules/EC2"
 
+  #Packer
+  packer_ami_use = var.packer_ami_use
+
   # Instance configuration
   haproxy_instance_count = var.haproxy_instance_count
   haproxy_instance_type  = var.haproxy_instance_type
@@ -112,8 +115,7 @@ module "EC2" {
   management = {
     iam_instance_profile = {
       "aws_full_access" : module.IAM.iam_ec2_instance_profile["aws_full_access"],
-      "aws_controlplane_access" : module.IAM.iam_ec2_instance_profile["aws_controlplane_access"]
-      "aws_worker_access" : module.IAM.iam_ec2_instance_profile["aws_worker_access"]
+      "aws_irsa_access" : module.IAM.iam_ec2_instance_profile["aws_irsa_access"]
     }
   }
 
@@ -155,4 +157,18 @@ module "IAM" {
   }
 }
 
+module "ASG" {
+  count  = terraform.workspace == "production" && var.build_phase == "postinit" ? 1 : 0
+  source = "./modules/ASG"
+  asg_dict = {
+    "kubernetes_workers" : {
+      ami_name         = "aws-linux-production-cv-project-vlad-bilii"
+      instance_type    = var.worker_instance_type
+      instance_profile = module.IAM.iam_ec2_instance_profile["aws_irsa_access"]
+      key_name         = module.EC2.ec2_key_name
+      security_groups  = module.VPC.vpc_security_groups["worker"]
+      subnets          = module.VPC.vpc_subnet_map["private"]
+    }
+  }
+}
 
