@@ -1,0 +1,6 @@
+extraArgs:
+  - --domain-filter=vladbilii.click
+  - --txt-owner-id=external-dns
+env:
+  - name: AWS_REGION
+    value: eu-central-1

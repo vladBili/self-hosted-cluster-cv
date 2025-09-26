@@ -1,0 +1,5 @@
+fullnameOverride: external-dns-private
+serviceAccount:
+  name: external-dns-private
+extraArgs:
+  - --aws-zone-type=private

@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: airflow-component
+  namespace: argocd
+spec:
+  project: airflow
+  sources:
+    - repoURL: https://airflow.apache.org
+      chart: airflow
+      targetRevision: 1.18.0
+    - repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
+      targetRevision: feature/airflow-deploy
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: airflow
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

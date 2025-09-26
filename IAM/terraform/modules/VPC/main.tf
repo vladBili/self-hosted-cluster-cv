@@ -2,7 +2,7 @@ locals {
   private_subnet_length = length(var.private_subnet_net_numbers)
   public_subnet_length  = length(var.public_subnet_net_numbers)
 
-  instance_groups = { for group in ["controlplane", "haproxy", "worker", "bastion"] : group => group }
+  instance_groups = { for group in ["controlplane", "haproxy", "worker", "bastion", "rds"] : group => group }
 
   bastion_public_ingress_rules = merge(var.ssh_ingress_security_group, var.bastion_ingress_security_group, var.web_ingress_security_group)
   bastion_public_ingress_keys  = keys(local.bastion_public_ingress_rules)
@@ -15,6 +15,9 @@ locals {
 
   worker_private_ingress_rules = merge(var.ssh_ingress_security_group, var.kubernetes_ingress_security_group, var.web_ingress_security_group)
   worker_private_ingress_keys  = keys(local.worker_private_ingress_rules)
+
+  rds_private_ingress_rules = merge(var.rds_ingress_security_group)
+  rds_private_ingress_keys  = keys(local.rds_private_ingress_rules)
 }
 
 data "aws_region" "main_region" {}
@@ -206,6 +209,19 @@ resource "aws_vpc_security_group_ingress_rule" "main_bastion_public_security_gro
   ip_protocol       = local.bastion_public_ingress_rules[local.bastion_public_ingress_keys[count.index]].ip_protocol
   tags = {
     Name       = "${local.bastion_public_ingress_keys[count.index]}",
+    department = terraform.workspace
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "main_rds_private_security_group_ingress_rule" {
+  count             = length(local.rds_private_ingress_keys)
+  security_group_id = aws_security_group.main_security_group["rds"].id
+  cidr_ipv4         = aws_vpc.main_vpc.cidr_block
+  from_port         = local.rds_private_ingress_rules[local.rds_private_ingress_keys[count.index]].from_port
+  to_port           = local.rds_private_ingress_rules[local.rds_private_ingress_keys[count.index]].to_port
+  ip_protocol       = local.rds_private_ingress_rules[local.rds_private_ingress_keys[count.index]].ip_protocol
+  tags = {
+    Name       = "${local.rds_private_ingress_keys[count.index]}",
     department = terraform.workspace
   }
 }

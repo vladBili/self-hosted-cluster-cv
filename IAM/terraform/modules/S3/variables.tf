@@ -1,0 +1,3 @@
+variable "enabled" {
+  type = bool
+}

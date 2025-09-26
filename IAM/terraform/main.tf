@@ -55,6 +55,11 @@ module "Route53" {
   vpc_id      = module.VPC.vpc_id
 }
 
+module "S3" {
+  enabled = local.count > 0
+  source  = "./modules/S3"
+}
+
 module "Lambda" {
   enabled = local.count > 0
   source  = "./modules/Lambda"
@@ -158,16 +163,49 @@ module "IAM" {
 }
 
 module "ASG" {
-  count  = terraform.workspace == "production" && var.build_phase == "postinit" ? 1 : 0
+  count  = local.count
   source = "./modules/ASG"
   asg_dict = {
     "kubernetes_workers" : {
-      ami_name         = "aws-linux-production-cv-project-vlad-bilii"
-      instance_type    = var.worker_instance_type
-      instance_profile = module.IAM.iam_ec2_instance_profile["aws_irsa_access"]
-      key_name         = module.EC2.ec2_key_name
-      security_groups  = module.VPC.vpc_security_groups["worker"]
-      subnets          = module.VPC.vpc_subnet_map["private"]
+      ami_name      = "aws-linux-production-cv-project-vlad-bilii"
+      instance_type = var.worker_instance_type
+      cluster_phase = module.SSM.ssm_kubernetes_cluster_phase_value
+      instance_profile = {
+        "preinit" : module.IAM.iam_ec2_instance_profile["aws_full_access"],
+        "postinit" : module.IAM.iam_ec2_instance_profile["aws_irsa_access"]
+      }
+      key_name        = module.EC2.ec2_key_name
+      security_groups = module.VPC.vpc_security_groups["worker"]
+      subnets         = module.VPC.vpc_subnet_map["private"]
+    }
+  }
+}
+
+module "ASM" {
+  count  = local.count
+  source = "./modules/ASM"
+  asm_dict = {
+    "airflow_conn" = try(module.RDS[0].airflow_db_connection, null)
+  }
+}
+
+module "RDS" {
+  count  = local.count
+  source = "./modules/RDS"
+  rds_dict = {
+    "airflow" : {
+      engine              = "postgres"
+      engine_version      = "17.6"
+      instance_class      = "db.t4g.micro"
+      allocated_storage   = 20
+      storage_type        = "gp3"
+      db_username         = "airflow"
+      db_port             = 5432
+      multi_az            = true
+      publicly_accessible = false
+      skip_final_snapshot = true
+      security_groups     = module.VPC.vpc_security_groups["rds"]
+      subnets             = module.VPC.vpc_subnet_map["private"]
     }
   }
 }

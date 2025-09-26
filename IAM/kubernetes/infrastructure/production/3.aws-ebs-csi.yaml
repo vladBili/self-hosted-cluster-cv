@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-ebs-csi
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
+    targetRevision: feature/airflow-deploy
+    path: IAM/kubernetes/components/aws-ebs-csi/overlays/production/
+  ignoreDifferences:
+  - group: ""
+    kind: ServiceAccount
+    name: aws-ebs
+    namespace: kube-system
+    jsonPointers:
+    - /metadata/annotations/eks.amazonaws.com~1role-arn
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

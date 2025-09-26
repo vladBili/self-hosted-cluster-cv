@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+bases:
+  - ../../base
+
+patches:
+  - target:
+      kind: Application
+      name: airflow-component
+    patch: |
+      - op: add
+        path: /spec/sources/0/helm
+        value:
+          valueFiles:
+            - $values/IAM/kubernetes/components/airflow/base/values.yaml
+            - $values/IAM/kubernetes/components/airflow/overlays/development/values.yaml

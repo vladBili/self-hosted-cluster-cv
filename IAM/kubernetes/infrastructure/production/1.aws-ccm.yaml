@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-cloud-controller-manager
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
+    targetRevision: feature/airflow-deploy
+    path: IAM/kubernetes/components/aws-ccm/overlays/production/
+  ignoreDifferences:
+  - group: ""
+    kind: ServiceAccount
+    name: cloud-controller-manager
+    namespace: kube-system
+    jsonPointers:
+    - /metadata/annotations/eks.amazonaws.com~1role-arn
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

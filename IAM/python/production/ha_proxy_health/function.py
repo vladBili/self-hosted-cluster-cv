@@ -27,7 +27,7 @@ def lambda_handler(event, context):
     primary_ip = os.environ["PRIMARY_IP"]
     secondary_ip = os.environ["SECONDARY_IP"]
     workspace = os.environ["WORKSPACE"]
-    subdomains = ["k8s","argocd"]
+    subdomains = ["k8s","argocd","airflow"]
     cluster_phase_param = os.environ.get("CLUSTER_PHASE_PARAM", f"/kubernetes/{workspace}/cluster_phase")
 
     haproxy_nodes = [primary_ip, secondary_ip]
