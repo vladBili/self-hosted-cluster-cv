@@ -42,8 +42,15 @@ frontend https_front
     mode tcp
     tcp-request inspect-delay 5s
     tcp-request content accept if { req.ssl_hello_type 1 }
+
     acl host_argocd req.ssl_sni -i argocd.${domain_name}
     use_backend argocd_backend if host_argocd
+
+frontend http_front
+    bind *:80
+    mode http
+    acl host_airflow hdr(host) -i airflow.${domain_name}
+    use_backend airflow_backend if host_airflow
 
 backend k8s_backend
     mode tcp
@@ -58,7 +65,16 @@ backend argocd_backend
     mode tcp
     balance roundrobin
     option tcp-check
-    tcp-check connect port 30080
+    tcp-check connect port 30443
 {% for host in groups['controlplane'] %}
-    server {{ hostvars[host]['inventory_hostname'] }} {{ hostvars[host]['ansible_host'] }}:30080 check
+    server {{ hostvars[host]['inventory_hostname'] }} {{ hostvars[host]['ansible_host'] }}:30443 check
+{% endfor %}
+
+backend airflow_backend
+    mode http
+    balance roundrobin
+    option httpchk GET /
+    http-check expect status 200
+{% for host in groups['controlplane'] %}
+    server {{ hostvars[host]['inventory_hostname'] }} {{ hostvars[host]['ansible_host'] }}:30444 check
 {% endfor %}

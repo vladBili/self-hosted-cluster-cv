@@ -1,0 +1,3 @@
+fullnameOverride: aws-vpc-cni
+serviceAccount:
+  name: aws-cni

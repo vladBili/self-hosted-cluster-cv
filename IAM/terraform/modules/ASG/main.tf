@@ -18,9 +18,8 @@ resource "aws_launch_template" "asg_template" {
   user_data     = base64encode(file("${path.module}/kubernetes-workers/user-data.sh"))
 
   iam_instance_profile {
-    name = var.asg_dict[each.key].instance_profile
+    name = var.asg_dict[each.key].instance_profile[var.asg_dict[each.key].cluster_phase]
   }
-
   network_interfaces {
     security_groups             = [var.asg_dict[each.key].security_groups]
     associate_public_ip_address = false

@@ -83,6 +83,11 @@ variable "kubernetes_ingress_security_group" {
       from_port   = 8443,
       to_port     = 8443,
       ip_protocol = "tcp"
+    },
+    "postgres_tcp" = {
+      from_port   = 5432,
+      to_port     = 5432,
+      ip_protocol = "tcp"
     }
   }
 }
@@ -168,6 +173,21 @@ variable "bastion_ingress_security_group" {
       from_port   = 1194,
       to_port     = 1194,
       ip_protocol = "udp"
+    }
+  }
+}
+
+variable "rds_ingress_security_group" {
+  type = map(object({
+    from_port = number,
+    to_port   = number,
+    ip_protocol = string }
+  ))
+  default = {
+    "postgres_tcp" = {
+      from_port   = 5432,
+      to_port     = 5432,
+      ip_protocol = "tcp"
     }
   }
 }

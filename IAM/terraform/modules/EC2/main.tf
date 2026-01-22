@@ -140,7 +140,7 @@ resource "aws_instance" "main_controlplane_nodes" {
 }
 
 resource "aws_instance" "main_worker_nodes" {
-  count         = var.worker_instance_count
+  count         = terraform.workspace == "development" ? var.worker_instance_count : 0
   instance_type = var.worker_instance_type
   ami           = var.packer_ami_use ? data.aws_ami.packer_ami.id : data.aws_ami.main_ami.id
   key_name      = aws_key_pair.main_aws_key_pair.key_name

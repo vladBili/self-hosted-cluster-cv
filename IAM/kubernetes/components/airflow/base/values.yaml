@@ -1,0 +1,52 @@
+dags:
+  gitSync:
+    enabled: true
+    repo: https://github.com/vladBili/self-hosted-cluster-cv.git
+    branch: main
+  persistence:
+    enabled: false
+
+postgresql:
+  enabled: false
+
+webserver:
+  enabled: false
+
+triggerer:
+  persistence:
+      enabled: false
+
+redis:
+  persistence:
+    enabled: false
+
+logs:
+  persistence:
+    enabled: false
+
+scheduler:
+  startupProbe:
+    timeoutSeconds: 60
+    periodSeconds: 10
+    failureThreshold: 18
+
+apiServer:
+  startupProbe:
+    failureThreshold: 60
+    periodSeconds: 5
+    timeoutSeconds: 5
+
+createUserJob:
+  useHelmHooks: false
+  applyCustomEnv: false
+  jobAnnotations:
+    "argocd.argoproj.io/hook": Sync
+    "argocd.argoproj.io/hook-delete-policy": BeforeHookCreation
+                  
+migrateDatabaseJob:
+  enabled: true  
+  useHelmHooks: false
+  applyCustomEnv: false
+  jobAnnotations:
+    "argocd.argoproj.io/hook": Sync
+    "argocd.argoproj.io/hook-delete-policy": BeforeHookCreation

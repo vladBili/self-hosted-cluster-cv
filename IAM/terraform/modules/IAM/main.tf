@@ -6,17 +6,23 @@ locals {
   }
   irsa_enabled = var.enabled && var.oidc["oidc"].cluster_phase == "postinit"
   irsa_dict = {
-    "cloud-controller-manager" = {
+    "aws-ccm" = {
       policy_document = try(data.aws_iam_policy_document.iam_irsa_ccm_role_document.json, "")
       namespace       = "kube-system"
       kind_type       = "daemonset"
       kind_name       = "aws-cloud-controller-manager"
     },
-    "aws-node" = {
+    "aws-cni" = {
       policy_document = try(data.aws_iam_policy_document.iam_irsa_aws_vpc_cni_role_document.json, "")
       namespace       = "kube-system"
       kind_type       = "daemonset"
-      kind_name       = "aws-node"
+      kind_name       = "aws-vpc-cni"
+    },
+    "aws-ebs" = {
+      policy_document = try(data.aws_iam_policy.iam_irsa_ebs_csi_policy.policy, "")
+      namespace       = "kube-system"
+      kind_type       = "deployment"
+      kind_name       = "ebs-csi-controller"
     },
     "external-dns-public" = {
       policy_document = try(data.aws_iam_policy_document.iam_irsa_external_dns_role_document.json, "")
@@ -29,9 +35,19 @@ locals {
       namespace       = "kube-system"
       kind_type       = "deployment"
       kind_name       = "external-dns-private"
+    },
+    "external-secrets" = {
+      policy_document = try(data.aws_iam_policy_document.iam_irsa_external_secrets_role_document.json, "")
+      namespace       = "kube-system"
+      kind_type       = "deployment"
+      kind_name       = "external-secrets"
     }
   }
+}
 
+# AWS-managed EBS CSI Driver policy
+data "aws_iam_policy" "iam_irsa_ebs_csi_policy" {
+  arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
 }
 
 data "aws_region" "main_region" {}
@@ -158,17 +174,18 @@ data "aws_iam_policy_document" "iam_irsa_external_dns_role_document" {
   }
 }
 
-data "aws_iam_policy_document" "iam_irsa_test_role_document" {
+data "aws_iam_policy_document" "iam_irsa_external_secrets_role_document" {
   statement {
-    effect    = "Allow"
-    actions   = ["s3:ListAllMyBuckets"]
-    resources = ["*"]
-  }
-
-  statement {
-    effect    = "Allow"
-    actions   = ["s3:ListBucket"]
-    resources = ["arn:aws:s3:::*"]
+    effect = "Allow"
+    actions = [
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      "arn:aws:secretsmanager:${data.aws_region.main_region.name}:${data.aws_caller_identity.main_account.account_id}:secret:airflow_*",
+      "arn:aws:ssm:${data.aws_region.main_region.name}:${data.aws_caller_identity.main_account.account_id}:parameter/*"
+    ]
   }
 }
 
@@ -219,6 +236,9 @@ data "aws_iam_policy_document" "iam_full_access_role_document" {
       "ec2:*",
       "route53:*",
       "ecr:*",
+      "secretsmanager:*",
+      "ssm:*",
+      "s3:*"
     ]
     resources = ["*"]
   }

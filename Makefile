@@ -113,7 +113,7 @@ terraform-iam-provision-postinit: ansible-playbook-postinit
 	export AWS_PROFILE=$(AWS_IAM_PROFILE) && \
 	terraform plan -out="env/$(DEPARTMENT)/plan/planfile-postinit" \
 	-var-file="env/$(DEPARTMENT)/variables/$(DEPARTMENT).tfvars" \
-	-var-file="$(DIRECTORY)/IAM/kubernetes/overlays/$(DEPARTMENT)/oidc/thumbprint.tfvars" \
+	-var-file="$(DIRECTORY)/IAM/kubernetes/applications/$(DEPARTMENT)/airflow/thumbprint.tfvars" \
 	-var="pwd=$(DIRECTORY)" \
 	-var="build_phase=postinit" \
 	-var="packer_ami_use=${PACKER_AMI_USE}" && \

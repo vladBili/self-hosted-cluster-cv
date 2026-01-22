@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+bases:
+  - ../../../base
+
+nameSuffix: -public
+
+patches:
+  - target:
+      kind: Application
+      name: external-dns-component
+    patch: |
+      - op: add
+        path: /spec/sources/0/helm
+        value:
+          valueFiles:
+            - $values/IAM/kubernetes/components/external-dns/base/values.yaml
+            - $values/IAM/kubernetes/components/external-dns/overlays/production/public/values.yaml

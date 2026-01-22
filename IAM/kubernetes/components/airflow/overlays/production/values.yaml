@@ -1,0 +1,44 @@
+executor: KubernetesExecutor
+
+dags:
+  gitSync:
+    subPath: "IAM/airflow/production/dags"
+
+data:
+  metadataSecretName: airflow-connection
+  
+apiServer:
+  service:
+    type: NodePort
+    ports:
+      - name: api-server
+        port: 8080
+        targetPort: api-server
+        nodePort: 30444
+
+triggerer:
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClassName: ebs-airflow-triggerer
+
+workers:
+  replicas: 0
+
+scheduler:
+  serviceAccount:
+    create: true
+    name: airflow-scheduler
+
+extraEnv: |
+  - name: AIRFLOW_CONN_AWS_DEFAULT
+    value: "aws://@/?region_name=eu-central-1"
+
+config:
+  logging:
+    remote_logging: 'True'
+    logging_level: 'INFO'
+    remote_base_log_folder: "s3://s3-bucket-production-vlad-bilii/airflow/logs"
+    remote_log_conn_id: 'aws_default'
+    delete_worker_pods: 'False'
+    encrypt_s3_logs: 'False'

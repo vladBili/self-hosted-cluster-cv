@@ -19,10 +19,14 @@
     helm repo add eks https://aws.github.io/eks-charts || true
     helm repo update
     helm upgrade --install aws-vpc-cni eks/aws-vpc-cni \
-    --namespace kube-system \
-    --version 1.20.0 \
-    --set env.ENABLE_PREFIX_DELEGATION=true \
-    --set env.NETWORK_POLICY_ENFORCING_MODE=standard
+      --namespace kube-system \
+      --version 1.20.0 \
+      --set env.ENABLE_PREFIX_DELEGATION=true \
+      --set env.NETWORK_POLICY_ENFORCING_MODE=standard \
+      {% if DEPARTMENT == "production" %}
+      --set fullnameOverride=aws-vpc-cni \
+      --set serviceAccount.name=aws-cni
+      {% endif %}
 
 - name: Deploy CCM
   ansible.builtin.command:
@@ -39,7 +43,9 @@
       --set controller.replicas={{ CP_COUNT }} \
       --set server.replicas={{ CP_COUNT }} \
       --set repoServer.replicas={{ CP_COUNT }} \
-      --set applicationSet.replicas={{ CP_COUNT }}
+      --set applicationSet.replicas={{ CP_COUNT }} \
+      --set server.service.type=NodePort \
+      --set server.service.nodePortHttps=30443
 
 - name: Deploy argocd projects
   ansible.builtin.command:
@@ -47,7 +53,7 @@
 
 - name: Deploy applications
   ansible.builtin.shell:
-    cmd: kubectl apply -k "{{ DIRECTORY }}/IAM/kubernetes/overlays/{{ DEPARTMENT }}"
+    cmd: kubectl apply -f "{{ DIRECTORY }}/IAM/kubernetes/root/{{ DEPARTMENT }}/main.yaml"
 
 - name: Wait until OIDC is ready and retrieve thumprint to AWS SSM parameter
   when: DEPARTMENT  == "production"
@@ -75,6 +81,6 @@
 
     - name: Save OIDC thumbprint to tfvars file
       ansible.builtin.copy:
-        dest: "{{ DIRECTORY }}/IAM/kubernetes/overlays/{{ DEPARTMENT }}/oidc/thumbprint.tfvars"
+        dest: "{{ DIRECTORY }}/IAM/kubernetes/applications/{{ DEPARTMENT }}/airflow/thumbprint.tfvars"
         content: |
           oidc_thumbprint = "{{ OIDC_THUMBPRINT.stdout }}"
