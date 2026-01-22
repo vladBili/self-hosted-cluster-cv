@@ -10,7 +10,7 @@ spec:
       chart: external-dns
       targetRevision: 1.18.0
     - repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
-      targetRevision: feature/airflow-deploy
+      targetRevision: main
       ref: values
   destination:
     server: https://kubernetes.default.svc

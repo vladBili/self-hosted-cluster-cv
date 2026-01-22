@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
-    targetRevision: feature/airflow-deploy
+    targetRevision: main
     path: IAM/kubernetes/root/production
     directory:
       recurse: true

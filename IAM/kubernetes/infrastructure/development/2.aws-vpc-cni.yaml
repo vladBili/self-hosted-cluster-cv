@@ -9,7 +9,7 @@ spec:
   project: infrastructure
   source:
     repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
-    targetRevision: feature/airflow-deploy
+    targetRevision: main
     path: IAM/kubernetes/components/aws-vpc-cni/overlays/development/
   destination:
     server: https://kubernetes.default.svc

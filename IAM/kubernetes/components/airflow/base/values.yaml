@@ -2,7 +2,7 @@ dags:
   gitSync:
     enabled: true
     repo: https://github.com/vladBili/self-hosted-cluster-cv.git
-    branch: feature/airflow-deploy
+    branch: main
   persistence:
     enabled: false
 
