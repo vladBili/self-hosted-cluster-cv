@@ -1,19 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: root
+  name: spark-app
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
-  project: default
+  project: spark
   source:
     repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
     targetRevision: feature/spark-deploy
-    path: IAM/kubernetes/root/development
-    directory:
-      recurse: true
+    path: IAM/kubernetes/components/spark/overlays/development/
   destination:
     server: https://kubernetes.default.svc
-    namespace: argocd
+    namespace: spark
   syncPolicy:
     automated:
       prune: true

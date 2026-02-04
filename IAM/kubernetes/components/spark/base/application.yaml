@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: spark-component
+  namespace: argocd
+spec:
+  project: infrastructure
+  sources:
+    - repoURL: oci://registry-1.docker.io/bitnamicharts/spark 
+      chart: spark
+      targetRevision: 10.0.3
+    - repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
+      targetRevision: feature/spark-deploy
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: spark
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
