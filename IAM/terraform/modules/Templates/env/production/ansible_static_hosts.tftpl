@@ -5,9 +5,6 @@ ${instance_params.private_dns} ansible_host=${group == "bastion" ? instance_para
 %{ endfor }
 %{ endfor ~}
 
-[localhost]
-localhost ansible_connection=local
-
 [all:vars]
 ansible_private_key_file=${pwd}/IAM/ansible/env/${tf_workspace}/keys/key.pem
 

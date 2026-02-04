@@ -12,11 +12,11 @@ workers:
 
 data:
   metadataConnection:
-    db: airflow
-    user: airflow
-    pass: airflow
+    db: postgres
+    user: airflow_user
+    pass: airflow_password
     protocol: postgresql
-    host: airflow-postgres.airflow.svc.cluster.local
+    host: postgres.postgres.svc.cluster.local
     port: 5432
     sslmode: disable
 

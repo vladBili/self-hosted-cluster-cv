@@ -1,0 +1,2 @@
+include:
+  - local: 'IAM/fastapi/.gitlab-ci.yml'

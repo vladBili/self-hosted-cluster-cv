@@ -8,7 +8,7 @@ metadata:
 spec:
   project: infrastructure
   source:
-    repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
+    repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
     targetRevision: main
     path: IAM/kubernetes/infrastructure/production
   destination:

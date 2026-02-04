@@ -9,8 +9,8 @@ spec:
     - repoURL: https://airflow.apache.org
       chart: airflow
       targetRevision: 1.18.0
-    - repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
-      targetRevision: main
+    - repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
+      targetRevision: feature/fastapi-deploy
       ref: values
   destination:
     server: https://kubernetes.default.svc

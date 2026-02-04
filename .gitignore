@@ -8,5 +8,27 @@ plan/
 *.DS_Store
 *.vscode
 *.tfvars
+__pycache__
+.pyc
 
-.env
+*.env
+
+# Ansible facts (dynamic hostnames)
+IAM/ansible/env/**/facts/
+IAM/ansible/env/**/inventory/
+
+# Ansible keys (private material)
+IAM/ansible/env/**/keys/
+
+# Kubernetes generated env files
+IAM/kubernetes/env/
+
+# OpenVPN generated configs
+IAM/openvpn/**/configuration/
+IAM/openvpn/**/templates/
+
+# HaProxy generated configs
+IAM/haproxy/**/templates/
+
+# Terraform environment configs/state
+IAM/terraform/env/**/config/

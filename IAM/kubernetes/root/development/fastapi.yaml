@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fastapi-root
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: fastapi
+  source:
+    repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
+    targetRevision: feature/fastapi-deploy
+    path: IAM/kubernetes/applications/development/fastapi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

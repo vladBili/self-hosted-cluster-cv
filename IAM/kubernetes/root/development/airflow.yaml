@@ -4,12 +4,12 @@ metadata:
   name: airflow-root
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   project: airflow
   source:
-    repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
-    targetRevision: main
+    repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
+    targetRevision: feature/fastapi-deploy
     path: IAM/kubernetes/applications/development/airflow
   destination:
     server: https://kubernetes.default.svc

@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gitlab-runner-component
+  namespace: argocd
+spec:
+  project: infrastructure
+  sources:
+    - repoURL: http://charts.gitlab.io/
+      chart: gitlab-runner
+      targetRevision: 0.85.0
+    - repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
+      targetRevision: feature/fastapi-deploy
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gitlab
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

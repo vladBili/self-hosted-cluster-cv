@@ -1,0 +1,26 @@
+gitlabUrl: "https://gitlab.com"
+
+rbac:
+  create: "true"
+
+serviceAccount:
+  create: "true"
+
+runners:
+  config: |
+    [[runners]]
+      name = "development-gitlab-runner"
+      executor = "kubernetes"
+      url = "https://gitlab.com/"
+      [runners.feature_flags]
+        FF_USE_ADAPTIVE_REQUEST_CONCURRENCY = true
+      [runners.cache]
+        Type = "s3"
+        Path = "gitlab/runner"
+        Shared = true
+        [runners.cache.s3]
+          ServerAddress = "s3.amazonaws.com"
+          BucketName = "s3-bucket-development-vlad-bilii"
+          BucketLocation = "eu-central-1"
+
+  secret : "gitlab-runner"

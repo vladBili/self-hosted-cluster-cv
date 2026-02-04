@@ -1,7 +1,7 @@
 dags:
   gitSync:
     enabled: true
-    repo: https://github.com/vladBili/self-hosted-cluster-cv.git
+    repo: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
     branch: main
   persistence:
     enabled: false

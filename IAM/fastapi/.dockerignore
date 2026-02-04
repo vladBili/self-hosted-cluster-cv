@@ -1,0 +1,4 @@
+.venv/
+.gitlab-ci.yaml
+__pycache__
+.pyc

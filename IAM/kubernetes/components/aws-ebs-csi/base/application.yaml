@@ -9,7 +9,7 @@ spec:
     - repoURL: https://kubernetes-sigs.github.io/aws-ebs-csi-driver
       chart: aws-ebs-csi-driver
       targetRevision: 2.49.1
-    - repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
+    - repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
       targetRevision: main
       ref: values
   destination:

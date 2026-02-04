@@ -1,0 +1,53 @@
+stages:
+  - build
+  - deploy
+
+build_fastapi:
+  stage: build
+  image:
+    name: moby/buildkit:rootless
+    entrypoint: [""]
+  variables:
+    BUILDKITD_FLAGS: --oci-worker-no-process-sandbox
+  rules:
+    - changes:
+        - IAM/fastapi/**/*
+  cache:
+    key: fastapi-cache
+    paths:
+      - gitlab-cache/
+  tags:
+    - kubernetes
+  before_script:
+    - mkdir -p ~/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > ~/.docker/config.json 
+  script:
+    - |
+      buildctl-daemonless.sh build \
+      --frontend dockerfile.v0 \
+      --local context=IAM/fastapi \
+      --local dockerfile=IAM/fastapi \
+      --output type=image,name=$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA,push=true \
+      --import-cache type=s3,region=eu-central-1,bucket=s3-bucket-development-vlad-bilii,prefix=gitlab/image/ \
+      --export-cache type=s3,region=eu-central-1,bucket=s3-bucket-development-vlad-bilii,prefix=gitlab/image/
+
+deploy_fastapi:
+  stage: deploy
+  image: alpine
+  rules:
+    - changes:
+        - IAM/fastapi/**/*
+  tags:
+    - kubernetes
+  before_script:
+    - apk add --no-cache git yq
+    - git config user.email "ci-test@example.com"
+    - git config user.name "CI TEST"
+  script:
+    - |
+      yq e -i '.spec.template.spec.containers[] |= (select(.name=="fastapi") .image = "registry.gitlab.com/vladbilii/self-hosted-cluster-cv:" + env(CI_COMMIT_SHA))' IAM/kubernetes/components/fastapi/base/deployment.yaml
+      yq e -i '.spec.template.spec.containers[] |= (select(.name=="fastapi") .image = "registry.gitlab.com/vladbilii/self-hosted-cluster-cv:" + env(CI_COMMIT_SHA))' IAM/kubernetes/applications/development/fastapi/0.job.yaml
+    - git add IAM/kubernetes/components/fastapi/base/deployment.yaml IAM/kubernetes/applications/development/fastapi/0.job.yaml
+    - |
+      git commit -m "fastapi: update image to $CI_COMMIT_SHA"
+    - git push https://gitlab-ci-token:$CI_PUSH_TOKEN@gitlab.com/vladbilii/self-hosted-cluster-cv.git HEAD:feature/fastapi-deploy --force

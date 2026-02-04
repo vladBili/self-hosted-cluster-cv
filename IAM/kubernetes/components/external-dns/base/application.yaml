@@ -9,7 +9,7 @@ spec:
     - repoURL: https://kubernetes-sigs.github.io/external-dns/
       chart: external-dns
       targetRevision: 1.18.0
-    - repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
+    - repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
       targetRevision: main
       ref: values
   destination:

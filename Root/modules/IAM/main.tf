@@ -155,7 +155,8 @@ data "aws_iam_policy_document" "iam_policy_documents_primary" {
       "iam:*",
       "ec2:*",
       "s3:*",
-      "ssm:*"
+      "ssm:*",
+      "secretsmanager:*"
     ]
     resources = ["*"]
   }
@@ -167,7 +168,6 @@ data "aws_iam_policy_document" "iam_policy_documents_secondary" {
     actions = [
       "elasticloadbalancing:*",
       "autoscaling:*",
-      "secretsmanager:*",
       "rds:*",
       "route53:*",
       "events:*",

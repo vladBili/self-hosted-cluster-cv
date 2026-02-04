@@ -182,8 +182,8 @@ module "ASG" {
 }
 
 module "ASM" {
-  count  = local.count
-  source = "./modules/ASM"
+  enabled = local.count > 0
+  source  = "./modules/ASM"
   asm_dict = {
     "airflow_conn" = try(module.RDS[0].airflow_db_connection, null)
   }

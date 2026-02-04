@@ -9,7 +9,7 @@ spec:
     - repoURL: https://charts.external-secrets.io
       chart: external-secrets
       targetRevision:  0.20.1
-    - repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
+    - repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
       targetRevision: main
       ref: values
   destination:

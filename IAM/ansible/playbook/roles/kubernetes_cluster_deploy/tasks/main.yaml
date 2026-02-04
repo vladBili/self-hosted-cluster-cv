@@ -47,6 +47,13 @@
       --set server.service.type=NodePort \
       --set server.service.nodePortHttps=30443
 
+- name: Create GitLab secret from file
+  ansible.builtin.shell: |
+    kubectl create namespace gitlab
+    kubectl create secret generic gitlab-runner \
+      --from-env-file={{ DIRECTORY }}/IAM/kubernetes/components/gitlab-runner/overlays/{{ DEPARTMENT }}/gitlab-runner.env \
+      --namespace gitlab
+
 - name: Deploy argocd projects
   ansible.builtin.command:
     cmd: kubectl apply -f "{{ DIRECTORY }}/IAM/argocd/{{ DEPARTMENT }}/projects"

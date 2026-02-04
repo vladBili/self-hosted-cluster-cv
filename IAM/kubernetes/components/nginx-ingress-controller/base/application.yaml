@@ -9,7 +9,7 @@ spec:
     - repoURL: https://kubernetes.github.io/ingress-nginx
       chart: ingress-nginx
       targetRevision: 4.13.0
-    - repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
+    - repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
       targetRevision: main
       ref: values
   destination:

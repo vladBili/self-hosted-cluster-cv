@@ -6,8 +6,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/vladBili/self-hosted-cluster-cv.git
-    targetRevision: main
+    repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
+    targetRevision: feature/fastapi-deploy
     path: IAM/kubernetes/root/development
     directory:
       recurse: true

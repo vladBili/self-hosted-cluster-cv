@@ -15,3 +15,8 @@
   hosts: localhost
   roles:
     - role: openvpn_client
+
+- name: Configure Gitlab
+  hosts: localhost
+  roles:
+    - role: gitlab_runner

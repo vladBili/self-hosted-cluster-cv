@@ -1,0 +1,4 @@
+USER_MAIN_PAT: "{{ lookup('env', 'GITLAB_USER_MAIN_PAT') }}"
+USER_PUSH_PAT: "{{ lookup('env', 'GITLAB_USER_PUSH_PAT') }}"
+GROUP_ID: "{{ lookup('env', 'GITLAB_GROUP_ID') | int }}"
+PROJECT_ID: "{{ lookup('env', 'GITLAB_PROJECT_ID') | int }}"

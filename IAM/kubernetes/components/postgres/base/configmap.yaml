@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-schema
+  namespace: postgres
+data:
+  init.sql: |
+    CREATE ROLE fastapi_user LOGIN PASSWORD 'fastapi_password';
+    CREATE ROLE airflow_user LOGIN PASSWORD 'airflow_password';
+
+    CREATE SCHEMA fastapi AUTHORIZATION fastapi_user;
+    CREATE SCHEMA airflow AUTHORIZATION airflow_user;
+
+    ALTER ROLE fastapi_user SET search_path = fastapi;
+    ALTER ROLE airflow_user SET search_path = airflow;
+
+    GRANT ALL ON SCHEMA fastapi TO fastapi_user;
+    GRANT ALL ON SCHEMA airflow TO airflow_user;

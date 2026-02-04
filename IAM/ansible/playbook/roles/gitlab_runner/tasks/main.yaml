@@ -1,0 +1,56 @@
+- name: GitLab runner block
+  block:
+    - name: Register GitLab project runner
+      ansible.builtin.uri:
+        url: "https://gitlab.com/api/v4/user/runners"
+        method: POST
+        headers:
+          PRIVATE-TOKEN: "{{ USER_MAIN_PAT }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          description: "kubernetes-runner"
+          tag_list:
+            - kubernetes
+            - buildkit
+            - "{{ DEPARTMENT }}"
+          run_untagged: false
+          locked: false
+          runner_type: "group_type"
+          group_id: "{{ GROUP_ID }}"
+        status_code: 201
+        return_content: true
+      register: gitlab_runner_response
+      no_log: true
+
+    - name: Register GitLab project env CI_TOKEN_PUSH
+      ansible.builtin.uri:
+        url: "https://gitlab.com/api/v4/groups/{{ GROUP_ID }}/variables"
+        method: POST
+        headers:
+          PRIVATE-TOKEN: "{{ USER_MAIN_PAT }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          key: CI_PUSH_TOKEN
+          value: "{{ USER_PUSH_PAT }}"
+        status_code: 201
+        return_content: true
+      no_log: true
+
+    - name: Write GitLab Runner token to .env file
+      ansible.builtin.copy:
+        dest: "{{ DIRECTORY }}/IAM/kubernetes/components/gitlab-runner/overlays/{{ DEPARTMENT }}/gitlab-runner.env"
+        content: |
+          runner-token={{ gitlab_runner_response.json.token }}
+          runner-registration-token=
+      no_log: true
+
+    - name: Add string to AWS Secrets Manager
+      community.aws.secretsmanager_secret:
+        name: "gitlab/{{ DEPARTMENT }}/runner_token"
+        state: present
+        secret_type: "string"
+        secret: "{{ gitlab_runner_response.json.token }}"
+      environment:
+        AWS_PROFILE: "{{ DEPARTMENT }}-user"
