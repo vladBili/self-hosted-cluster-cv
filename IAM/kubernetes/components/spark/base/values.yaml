@@ -1,2 +1,11 @@
 worker:
   replicaCount : 2
+
+image:
+  registry: docker.io
+  repository: bitnamilegacy/spark
+  tag: 4.0.0-debian-12-r20
+
+global:
+  security:
+    allowInsecureImages: true
