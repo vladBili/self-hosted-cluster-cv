@@ -1,2 +1,3 @@
 include:
   - local: 'IAM/fastapi/.gitlab-ci.yml'
+  - local: 'IAM/spark/*/*/.gitlab-ci.yml'

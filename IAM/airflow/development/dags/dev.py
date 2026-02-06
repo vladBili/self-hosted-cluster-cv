@@ -1,4 +1,3 @@
-from airflow import DAG
 from airflow.decorators import dag, task
 from datetime import datetime, timedelta
 import time

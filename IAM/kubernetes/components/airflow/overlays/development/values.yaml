@@ -1,6 +1,7 @@
 dags:
   gitSync:
     subPath: "IAM/airflow/development/dags"
+    branch: feature/spark-deploy
 
 executor: KubernetesExecutor
 
@@ -23,6 +24,8 @@ data:
 extraEnv: |
   - name: AIRFLOW_CONN_AWS_DEFAULT
     value: "aws://@/?region_name=eu-central-1"
+  - name: AIRFLOW_CONN_KUBERNETES_DEFAULT
+    value: '{"conn_type":"kubernetes","extra":{"in_cluster":true, "kube_config_path": "~/.kube/config", "namespace":"airflow"}}'
 
 config:
   logging:

@@ -1,0 +1,53 @@
+stages:
+  - build
+  - deploy
+
+build_spark:
+  stage: build
+  image:
+    name: moby/buildkit:rootless
+    entrypoint: [""]
+  variables:
+    BUILDKITD_FLAGS: --oci-worker-no-process-sandbox
+    SPARK_IMAGE: "$CI_REGISTRY_IMAGE/spark:$CI_COMMIT_SHA"
+  rules:
+    - changes:
+        - IAM/spark/development/test-image/*
+        - IAM/airflow/development/dags/crds/test-spark.yaml
+  tags:
+    - kubernetes
+  before_script:
+    - mkdir -p ~/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > ~/.docker/config.json 
+  script:
+    - |
+      buildctl-daemonless.sh build \
+      --frontend dockerfile.v0 \
+      --local context=IAM/spark/development/test-image \
+      --local dockerfile=IAM/spark/development/test-image \
+      --output type=image,name=$SPARK_IMAGE,push=true \
+      --import-cache type=s3,region=eu-central-1,bucket=s3-bucket-development-vlad-bilii,prefix=spark/image/test-image/ \
+      --export-cache type=s3,region=eu-central-1,bucket=s3-bucket-development-vlad-bilii,prefix=spark/image/test-image/
+
+deploy_spark:
+  stage: deploy
+  image: alpine
+  variables:
+    SPARK_IMAGE: "$CI_REGISTRY_IMAGE/spark:$CI_COMMIT_SHA"
+  rules:
+    - changes:
+        - IAM/spark/development/test-image/*
+        - IAM/airflow/development/dags/crds/test-spark.yaml
+  tags:
+    - kubernetes
+  before_script:
+    - apk add --no-cache git yq
+    - git config user.email "ci-test@example.com"
+    - git config user.name "CI TEST"
+  script:
+    - |
+      yq e -i '.spec.image = strenv(SPARK_IMAGE)' IAM/airflow/development/dags/crds/test-spark.yaml
+    - git add IAM/airflow/development/dags/crds/test-spark.yaml
+    - |
+      git commit -m "spark: update image to $CI_COMMIT_SHA"
+    - git push https://gitlab-ci-token:$CI_PUSH_TOKEN@gitlab.com/vladbilii/self-hosted-cluster-cv.git HEAD:feature/spark-deploy --force

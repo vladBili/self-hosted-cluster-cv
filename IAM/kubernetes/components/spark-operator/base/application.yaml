@@ -1,14 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: spark-component
+  name: spark-operator-component
   namespace: argocd
 spec:
   project: infrastructure
   sources:
-    - repoURL: oci://registry-1.docker.io/bitnamicharts/spark 
-      chart: spark
-      targetRevision: 10.0.3
+    - repoURL: https://apache.github.io/spark-kubernetes-operator 
+      chart: spark-kubernetes-operator
+      targetRevision: 1.5.0
     - repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
       targetRevision: feature/spark-deploy
       ref: values

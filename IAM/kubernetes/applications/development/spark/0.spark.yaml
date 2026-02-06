@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
     targetRevision: feature/spark-deploy
-    path: IAM/kubernetes/components/spark/overlays/development/
+    path: IAM/kubernetes/components/spark-operator/overlays/development/
   destination:
     server: https://kubernetes.default.svc
     namespace: spark
