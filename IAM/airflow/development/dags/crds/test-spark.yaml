@@ -6,7 +6,7 @@ spec:
   type: Python
   pythonVersion: 3
   mode: cluster
-  image:  "registry.gitlab.com/vladbilii/self-hosted-cluster-cv/spark:5d6f6d3c3f93b2121f2fd269e1fcaa458e1e6fd4"
+  image:  "registry.gitlab.com/vladbilii/self-hosted-cluster-cv:6178aedcd15039520f1ec2e2982ea7c53cec5e1b"
   mainApplicationFile: "local:///opt/spark/test-image/main.py" 
   driver:
     cores: 1

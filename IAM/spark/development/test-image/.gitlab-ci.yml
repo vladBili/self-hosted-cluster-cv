@@ -13,7 +13,6 @@ build_spark:
   rules:
     - changes:
         - IAM/spark/development/test-image/*
-        - IAM/airflow/development/dags/crds/test-spark.yaml
   tags:
     - kubernetes
   before_script:
@@ -37,7 +36,6 @@ deploy_spark:
   rules:
     - changes:
         - IAM/spark/development/test-image/*
-        - IAM/airflow/development/dags/crds/test-spark.yaml
   tags:
     - kubernetes
   before_script:

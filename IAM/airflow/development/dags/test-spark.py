@@ -4,7 +4,7 @@ from airflow.providers.cncf.kubernetes.operators.spark_kubernetes import SparkKu
 
 with DAG(
     dag_id='spark_test_dag',
-    schedule_interval=None,
+    schedule=None,
     catchup=False
 ) as dag:
     submit_spark_job = SparkKubernetesOperator(

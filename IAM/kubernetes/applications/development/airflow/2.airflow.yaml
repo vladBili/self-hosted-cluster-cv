@@ -9,7 +9,7 @@ spec:
   project: airflow
   source:
     repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
-    targetRevision: feature/fastapi-deploy
+    targetRevision: feature/spark-deploy
     path: IAM/kubernetes/components/airflow/overlays/development/
   destination:
     server: https://kubernetes.default.svc

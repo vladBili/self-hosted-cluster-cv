@@ -25,7 +25,7 @@ extraEnv: |
   - name: AIRFLOW_CONN_AWS_DEFAULT
     value: "aws://@/?region_name=eu-central-1"
   - name: AIRFLOW_CONN_KUBERNETES_DEFAULT
-    value: '{"conn_type":"kubernetes","extra":{"in_cluster":true, "kube_config_path": "~/.kube/config", "namespace":"airflow"}}'
+    value: '{"conn_type":"kubernetes","extra":{"in_cluster":true,"namespace":"airflow"}}'
 
 config:
   logging:

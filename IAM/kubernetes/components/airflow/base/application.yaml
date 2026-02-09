@@ -10,7 +10,7 @@ spec:
       chart: airflow
       targetRevision: 1.18.0
     - repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
-      targetRevision: feature/fastapi-deploy
+      targetRevision: feature/spark-deploy
       ref: values
   destination:
     server: https://kubernetes.default.svc
