@@ -153,11 +153,6 @@ variable "controlplane_ingress_security_group" {
       from_port   = 2379,
       to_port     = 2380,
       ip_protocol = "tcp"
-    },
-    "controller_webhook_tcp" = {
-      from_port   = 9443,
-      to_port     = 9443,
-      ip_protocol = "tcp"
     }
   }
 }
