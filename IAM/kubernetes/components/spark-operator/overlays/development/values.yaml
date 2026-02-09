@@ -1,0 +1,4 @@
+spark:
+  jobNamespaces:
+    - default
+    - spark

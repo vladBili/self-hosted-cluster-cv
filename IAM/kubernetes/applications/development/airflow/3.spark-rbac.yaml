@@ -7,7 +7,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "3"
 rules:
   - apiGroups: ["sparkoperator.k8s.io"]
-    resources: ["sparkapplications"]
+    resources: ["sparkapplications", "sparkapplications/status"]
     verbs: ["create", "get", "list", "watch", "delete"]
 
   - apiGroups: [""]

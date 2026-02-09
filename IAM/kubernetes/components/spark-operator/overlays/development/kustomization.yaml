@@ -3,3 +3,14 @@ kind: Kustomization
 
 resources:
   - ../../base
+
+patches:
+  - target:
+      kind: Application
+      name: spark-operator-component
+    patch: |
+      - op: add
+        path: /spec/sources/0/helm
+        value:
+          valueFiles:
+            - $values/IAM/kubernetes/components/spark-operator/overlays/development/values.yaml
