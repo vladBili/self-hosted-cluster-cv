@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: test-image-rbac
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: airflow
+  source:
+    repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
+    targetRevision: feature/spark-deploy
+    path: IAM/spark/development/test-image/rbac
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: spark
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

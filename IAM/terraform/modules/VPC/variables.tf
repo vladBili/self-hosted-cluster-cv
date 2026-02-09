@@ -88,6 +88,11 @@ variable "kubernetes_ingress_security_group" {
       from_port   = 5432,
       to_port     = 5432,
       ip_protocol = "tcp"
+    },
+    "spark-operator" = {
+      from_port   = 9443,
+      to_port     = 9443,
+      ip_protocol = "tcp"
     }
   }
 }

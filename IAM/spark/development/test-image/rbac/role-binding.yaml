@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spark-test-image-driver-rb
+  namespace: spark
+subjects:
+  - kind: ServiceAccount
+    name: test-image-sa
+    namespace: spark
+roleRef:
+  kind: Role
+  name: spark-test-image-driver-role
+  apiGroup: rbac.authorization.k8s.io

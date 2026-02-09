@@ -6,9 +6,9 @@ metadata:
 spec:
   project: infrastructure
   sources:
-    - repoURL: https://apache.github.io/spark-kubernetes-operator 
-      chart: spark-kubernetes-operator
-      targetRevision: 1.5.0
+    - repoURL: https://kubeflow.github.io/spark-operator
+      chart: spark-operator
+      targetRevision: 2.4.0
     - repoURL: https://gitlab.com/vladbilii/self-hosted-cluster-cv.git
       targetRevision: feature/spark-deploy
       ref: values

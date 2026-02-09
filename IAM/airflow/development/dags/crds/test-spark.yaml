@@ -2,16 +2,26 @@ apiVersion: sparkoperator.k8s.io/v1beta2
 kind: SparkApplication
 metadata:
   name: pyspark-job
+  namespace: spark
 spec:
   type: Python
-  pythonVersion: 3
+  pythonVersion: "3"
+  sparkVersion: "4.0.1"
   mode: cluster
-  image:  "registry.gitlab.com/vladbilii/self-hosted-cluster-cv:6178aedcd15039520f1ec2e2982ea7c53cec5e1b"
-  mainApplicationFile: "local:///opt/spark/test-image/main.py" 
+  image: "registry.gitlab.com/vladbilii/self-hosted-cluster-cv/spark:0249234f8bbb771891b452d824e3fc323a0a2536"
+  mainApplicationFile: "local:///opt/spark/test-image/main.py"
+
+  sparkConf:
+    "spark.kubernetes.memoryOverheadFactor": "0.1"
+
   driver:
+    serviceAccount: test-image-sa
     cores: 1
-    memory: "1g"
+    coreRequest: "100m" 
+    memory: "512m"   
+
   executor:
+    instances: 1
     cores: 1
-    memory: "1g"
-    instances: 2
+    coreRequest: "100m"
+    memory: "512m" 
